@@ -1,0 +1,9 @@
+[submodule "src/externals/cereal"]
+	path = src/externals/cereal
+	url = https://github.com/USCiLab/cereal.git
+[submodule "src/externals/magic_enum"]
+	path = src/externals/magic_enum
+	url = https://github.com/Neargye/magic_enum.git
+[submodule "src/externals/argparse"]
+	path = src/externals/argparse
+	url = https://github.com/p-ranav/argparse.git
