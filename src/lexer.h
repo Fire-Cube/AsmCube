@@ -4,8 +4,6 @@
 
 #include "types.h"
 
-int lex(const std::filesystem::path& inputPath);
-
 struct Token {
     enum class Type {
         Identifier,
@@ -22,6 +20,7 @@ struct Token {
         BracketOpen,
         BracketClose,
         Char,
+        SymbolType,
     } type;
 
     std::string lexeme;
@@ -29,3 +28,5 @@ struct Token {
     u32 column;
     u32 length;
 };
+
+int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens);

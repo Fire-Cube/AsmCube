@@ -1,28 +1,12 @@
 #include <cctype>
 #include <filesystem>
-#include <fstream>
 #include <format>
-#include <iostream>
 #include <string>
 
 #include "lexer.h"
-
 #include "types.h"
 
-int lex(const std::filesystem::path& inputPath) {
-    if (!std::filesystem::exists(inputPath)) {
-        std::cout << std::format("File '{}' does not exist!\n", inputPath.string());
-        return 1;
-    }
-
-    std::ifstream in(inputPath, std::ios::binary);
-    if (!in) {
-        std::cout << std::format("Failed to open file '{}'\n", inputPath.string());
-        return 1;
-    }
-
-    std::vector<Token> tokens;
-    std::string line;
+int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
     u32 lineNumber = 0;
 
     bool inString = false;
@@ -31,19 +15,21 @@ int lex(const std::filesystem::path& inputPath) {
     bool buildingIdentifier  = false;
     bool buildingImmediate = false;
     bool buildingRegister = false;
+    bool buildingSymbolType = false;
 
     auto endCurrentLexemes = [&](){
         buildingNumber = false;
+        inString = false;
         inChar = false;
         buildingIdentifier  = false;
         buildingImmediate = false;
         buildingRegister = false;
+        buildingSymbolType = false;
     };
 
-    while (std::getline(in, line)) {
+    for (const auto& line : inputLines) {
         ++lineNumber;
 
-        // Skip blank/space-only lines
         const auto firstNonSpace = line.find_first_not_of(' ');
         if (firstNonSpace == std::string::npos) {
             continue;
@@ -51,12 +37,7 @@ int lex(const std::filesystem::path& inputPath) {
 
         u32 column = 0;
 
-        inString = false;
-        inChar = false;
-        buildingNumber = false;
-        buildingIdentifier  = false;
-        buildingImmediate = false;
-        buildingRegister = false;
+        endCurrentLexemes();
 
         bool exitLoop = false;
 
@@ -152,12 +133,22 @@ int lex(const std::filesystem::path& inputPath) {
                     tokens.push_back(Token{ Token::Type::BracketClose, ")", lineNumber, column, 1 });
                     continue;
 
+                case '@':
+                    if (buildingIdentifier) {
+                        tokens.back().lexeme += c;
+                        tokens.back().length += 1;
+                    } else if (!buildingImmediate && !buildingRegister && !buildingNumber) {
+                        buildingSymbolType = true;
+                        tokens.push_back(Token{ Token::Type::SymbolType, "@", lineNumber, column, 1 });
+                    }
+                    continue;
+
                 default:
                     break;
             }
 
             if (std::isdigit(uc)) {
-                if (!buildingNumber & !buildingIdentifier & !buildingImmediate & !buildingRegister) {
+                if (!buildingNumber && !buildingIdentifier && !buildingImmediate && !buildingRegister) {
                     endCurrentLexemes();
                     buildingNumber = true;
                     tokens.push_back(Token{ Token::Type::Number, std::string(1, c), lineNumber, column, 1 });
@@ -169,7 +160,7 @@ int lex(const std::filesystem::path& inputPath) {
             }
 
             if (std::isalpha(uc) || c == '_') {
-                if (!buildingIdentifier & !buildingRegister) {
+                if (!buildingIdentifier && !buildingRegister && !buildingSymbolType) {
                     endCurrentLexemes();
                     buildingIdentifier = true;
                     tokens.push_back(Token{ Token::Type::Identifier, std::string(1, c), lineNumber, column, 1 });
@@ -179,7 +170,7 @@ int lex(const std::filesystem::path& inputPath) {
                 }
                 continue;
             }
-            endCurrentLexemes();
+            // endCurrentLexemes();
         }
         tokens.push_back(Token{ Token::Type::EOL, std::string{}, lineNumber, column, 0 });
     }
