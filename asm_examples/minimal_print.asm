@@ -1,7 +1,7 @@
 .section .rodata
 
 msg0:
-    .ascii  "Syntax Test\n-----------\n"
+    .ascii  "If you see this, the test passed!\n"
 msglen0 = . - msg0
 
 .section .text
