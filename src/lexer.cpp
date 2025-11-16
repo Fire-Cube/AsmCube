@@ -41,13 +41,14 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
 
         bool exitLoop = false;
 
-        for (char c : line) {
+        for (u32 i = 0; i < line.size(); ++i) {
+            char c = line[i];
             if (exitLoop) {
                 break;
             }
 
             auto uc = static_cast<unsigned char>(c);
-            ++column;
+            u32 column = i;
 
             if (c == '\"') {
                 if (!inString) {
@@ -130,7 +131,7 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
 
                 case ')':
                     endCurrentLexemes();
-                    tokens.push_back(Token{ Token::Type::BracketClose, ")", lineNumber, column, 1 });
+                    tokens.push_back(Token{ Token::Type::BracketClosed, ")", lineNumber, column, 1 });
                     continue;
 
                 case '@':
@@ -141,6 +142,11 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                         buildingSymbolType = true;
                         tokens.push_back(Token{ Token::Type::SymbolType, "@", lineNumber, column, 1 });
                     }
+                    continue;
+
+                case '=':
+                    endCurrentLexemes();
+                    tokens.push_back(Token{ Token::Type::Equal, "=", lineNumber, column, 1 });
                     continue;
 
                 default:

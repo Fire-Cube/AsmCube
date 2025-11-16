@@ -5,8 +5,7 @@
 #include <cereal/archives/json.hpp>
 #include <cereal/types/string.hpp>
 
-#include <magic_enum/magic_enum.hpp>
-
+#include "cereal_overrides.h"
 #include "types.h"
 
 struct Token {
@@ -23,9 +22,10 @@ struct Token {
         Register,
         Immediate,
         BracketOpen,
-        BracketClose,
+        BracketClosed,
         Char,
         SymbolType,
+        Equal,
     } type;
 
     std::string lexeme;
@@ -35,7 +35,7 @@ struct Token {
 
     template <class Archive>
     void serialize(Archive& archive) {
-        archive(cereal::make_nvp("type", std::string{ magic_enum::enum_name(type) }),
+        archive(cereal::make_nvp("type", type),
                 cereal::make_nvp("lexeme", lexeme),
                 cereal::make_nvp("line", line),
                 cereal::make_nvp("column", column),

@@ -12,7 +12,6 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/Build/${presetName}",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang-cl",
         "CMAKE_CXX_COMPILER": "clang-cl",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/Build/${presetName}"
       },
