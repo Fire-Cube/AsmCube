@@ -9,7 +9,7 @@ namespace magic_enum::customize {
 template<>
 constexpr customize_t enum_name<NormalMnemonic>(NormalMnemonic value) noexcept {
     switch (value) {
-    case NormalMnemonic::Xor:
+        case NormalMnemonic::Xor:
             return "xor";
 
         default:
