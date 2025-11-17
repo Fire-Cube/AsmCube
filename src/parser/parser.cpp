@@ -3,8 +3,8 @@
 
 #include "magic_enum_overrides.h"
 
-#include "lexer.h"
-#include "parser.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
 
 #include "logging.h"
 

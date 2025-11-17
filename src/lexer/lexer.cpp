@@ -3,7 +3,7 @@
 #include <format>
 #include <string>
 
-#include "lexer.h"
+#include "lexer/lexer.h"
 #include "types.h"
 
 int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {

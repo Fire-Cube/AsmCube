@@ -10,7 +10,7 @@
 
 #include "cereal_overrides.h"
 #include "types.h"
-#include "lexer.h"
+#include "lexer/lexer.h"
 
 
 struct Label {

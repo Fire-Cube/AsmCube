@@ -2,7 +2,7 @@
 
 #include <magic_enum/magic_enum.hpp>
 
-#include "parser.h"
+#include "parser/parser.h"
 
 namespace magic_enum::customize {
 

@@ -9,8 +9,8 @@
 
 #include "logging.h"
 
-#include "lexer.h"
-#include "parser.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
 
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser argumentParser("AsmCube");
