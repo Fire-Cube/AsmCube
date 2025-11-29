@@ -33,6 +33,8 @@ do { \
         const auto sourceLocation = std::source_location::current(); \
         std::cout << RED(std::format("{}:{} ({}) ERROR: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))); \
     } \
+     __builtin_trap(); \
+     std::exit(1); \
 } while (0)
 
 #define LOG_WARNING(msg, ...) \

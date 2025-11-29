@@ -12,7 +12,6 @@
 #include "types.h"
 #include "lexer/lexer.h"
 
-
 struct Label {
     std::string name;
 
@@ -26,6 +25,7 @@ struct Directive {
     enum class Name {
         global,
         ascii,
+        skip,
     };
     Name name;
     std::vector<std::string> arguments;
@@ -44,69 +44,6 @@ enum class IgnoredDirectives {
     cfi_undefined,
     size,
 };
-
-enum class NormalMnemonic {
-    add,
-    sub,
-    mul,
-    dec,
-    inc,
-    div,
-    lea,
-    cmp,
-    jmp,
-    Xor,
-    call,
-    ret,
-    syscall,
-    push,
-    pop,
-};
-
-enum class MnemonicFamily {
-    normal,
-    jump,
-    move,
-};
-
-enum class OpSize{
-    b, // byte
-    w, // word
-    l, // long
-    q, // quad
-};
-
-struct Size {
-    OpSize size;
-
-    template <class Archive>
-    void serialize(Archive& archive) {
-        archive(cereal::make_nvp("size", size));
-    }
-};
-
-struct ExtendedSize {
-    OpSize srcSize;
-    OpSize dstSize;
-
-    template <class Archive>
-    void serialize(Archive& archive) {
-        archive(cereal::make_nvp("srcSize", srcSize),
-                cereal::make_nvp("dstSize", dstSize));
-    }
-
-
-};
-
-struct PrefixSet {
-    bool rep = false;
-
-    template <class Archive>
-    void serialize(Archive& archive) {
-        archive(cereal::make_nvp("rep", rep));
-    }
-};
-
 
 enum class CondCode {
     overflow,
@@ -141,27 +78,16 @@ enum class CondCode {
 };
 
 struct Mnemonic {
-    MnemonicFamily family;
+    std::string mnemonicName;
 
-    std::optional<NormalMnemonic> mnemonicName; // for normal mnemonics
-
-    std::optional<PrefixSet> prefixSet;
-    std::optional<Size> size; // normal size for most mnemonics
-
-    std::optional<ExtendedSize> extendedSize; // for mov family
-    std::optional<bool> signExtended; // for mov family, sign or zero extension
-
-    std::optional<CondCode> cond; // for conditional jumps
+    std::string prefix;
+    std::string suffix;
 
     template <class Archive>
     void serialize(Archive& archive) {
         archive(cereal::make_nvp("mnemonicName", mnemonicName),
-                cereal::make_nvp("family", family),
-                cereal::make_nvp("prefixSet", prefixSet),
-                cereal::make_nvp("size", size),
-                cereal::make_nvp("extendedSize", extendedSize),
-                cereal::make_nvp("signExtended", signExtended),
-                cereal::make_nvp("cond", cond));
+                cereal::make_nvp("prefix", prefix),
+                cereal::make_nvp("suffix", suffix));
     }
 };
 
@@ -251,6 +177,8 @@ struct Section {
                 cereal::make_nvp("items", items));
         }
 };
+
+using Ast = std::vector<Section>;
 
 int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions);
 int parse(const std::vector<Token>& tokens, std::vector<Section>& ast);

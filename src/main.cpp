@@ -11,6 +11,7 @@
 
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "interpreter/interpreter.h"
 
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser argumentParser("AsmCube");
@@ -78,8 +79,8 @@ int main(int argc, char *argv[]) {
     auto startTime = std::chrono::high_resolution_clock::now();
     lex(inputLines, tokens);
     auto endTime = std::chrono::high_resolution_clock::now();
-    auto lexDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
-    LOG_DEBUG("Lexing completed in {} ms, {} tokens generated.", lexDuration, tokens.size());
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
+    LOG_DEBUG("Lexing completed in {} ms, {} tokens generated.", duration, tokens.size());
 
     if (argumentParser["--dump"] == true) {
         const auto outputPath = std::filesystem::absolute("lex.json");
@@ -89,12 +90,12 @@ int main(int argc, char *argv[]) {
         LOG_INFO("Lexed tokens dumped to '{}'.", outputPath.string());
     }
 
-    std::vector<Section> ast;
+    Ast ast;
     startTime = std::chrono::high_resolution_clock::now();
     parse(tokens, ast);
     endTime = std::chrono::high_resolution_clock::now();
-    lexDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
-    LOG_DEBUG("Parsing completed in {} ms.", lexDuration);
+    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
+    LOG_DEBUG("Parsing completed in {} ms.", duration);
 
     if (argumentParser["--dump"] == true) {
         const auto outputPath = std::filesystem::absolute("ast.json");
@@ -103,6 +104,12 @@ int main(int argc, char *argv[]) {
         archive(cereal::make_nvp("ast", ast));
         LOG_INFO("AST dumped to '{}'.", outputPath.string());
     }
+
+    startTime = std::chrono::high_resolution_clock::now();
+    run(ast);
+    endTime = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
+    LOG_DEBUG("Run completed in {} ms.", duration);
 
     return 0;
 }

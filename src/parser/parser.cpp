@@ -4,7 +4,8 @@
 #include "magic_enum_overrides.h"
 
 #include "lexer/lexer.h"
-#include "parser/parser.h"
+#include "parser.h"
+#include "interpreter/mnemonics.h"
 
 #include "logging.h"
 
@@ -83,7 +84,6 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
                 operandCommaPositions.push_back({});
                 if (inParen) {
                     LOG_ERROR("Nested parentheses are not supported (line {} column {})", lineTokens[i].line, lineTokens[i].column);
-                    return 1;
                 }
                 inParen = true;
                 break;
@@ -91,7 +91,6 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
             case Token::Type::BracketClosed:
                 if (!inParen) {
                     LOG_ERROR("Unmatched closing parenthesis (line {} column {})", lineTokens[i].line, lineTokens[i].column);
-                    return 1;
                 }
                 inParen = false;
                 ++operandIndex;
@@ -101,14 +100,12 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
                 if (inParen) {
                     if (operandCommaPositions.size() > 2) {
                         LOG_ERROR("More than three operands inside parentheses are not supported (line {} column {})", lineTokens[i].line, lineTokens[i].column);
-                        return 1;
                     }
                     operandCommaPositions[operandIndex].push_back(i);
                 }
                 else {
                     if (parameterCommaPos != 0) {
                         LOG_ERROR("More than two parameters are not supported (line {} column {})", lineTokens[i].line, lineTokens[i].column);
-                        return 1;
                     }
                     parameterCommaPos = i;
                 }
@@ -192,33 +189,50 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
         }
 
         if (lineTokens[0].type == Token::Type::Identifier) {
-            // Normal mnemonics
-            if (auto value = magic_enum::enum_cast<NormalMnemonic>(lineTokens[0].lexeme)) {
-                Instruction instruction;
+            std::string mnemonicName {};
+            std::string prefix {};
+            std::string suffix {};
+            u8 mnemonicPos = 0;
 
-                Mnemonic mnemonic;
-                mnemonic.mnemonicName = *value;
-                mnemonic.family = MnemonicFamily::normal;
-
-                instruction.mnemonic = mnemonic;
-
-                parseOperands(instruction, lineTokens, ast);
-
+            auto possiblePrefixes = populatePossiblePrefixes();
+            if (std::ranges::find(possiblePrefixes, lineTokens[0].lexeme) != possiblePrefixes.end()) {
+                prefix = lineTokens[0].lexeme;
+                mnemonicPos = 1;
             }
-            // Mov mnemonic
-            else if (lineTokens[0].lexeme.substr(0, 3) == "mov") {
-                Instruction instruction;
-
-                Mnemonic mnemonic;
-                mnemonic.family = MnemonicFamily::move;
-
-                // Todo: Check for suffixes
-                instruction.mnemonic = mnemonic;
-
-                parseOperands(instruction, lineTokens, ast);
+            if (instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme)) {
+                mnemonicName = lineTokens[mnemonicPos].lexeme;
             }
+            else if (instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1))) {
+                mnemonicName = lineTokens[mnemonicPos].lexeme.substr(1);
+                suffix = lineTokens[0].lexeme.substr(lineTokens[0].lexeme.size() - 1);
+            }
+
+            if (!mnemonicName.empty()) {
+                // Instruction found
+                Instruction instruction;
+                Mnemonic mnemonic;
+                mnemonic.mnemonicName = mnemonicName;
+
+                auto& instructionDef = instructionDefinitions[mnemonicName];
+                if (!prefix.empty()) {
+                    if (std::ranges::find(instructionDef.allowedPrefixes, prefix) == instructionDef.allowedPrefixes.end()) {
+                        LOG_ERROR("Invalid prefix '{}' for mnemonic '{}' at line {} column {}", prefix, mnemonicName, lineTokens[0].line, lineTokens[0].column);
+                    }
+                    mnemonic.prefix = prefix;
+                }
+                if (!suffix.empty()) {
+                    if (std::ranges::find(instructionDef.allowedSuffixes, suffix) == instructionDef.allowedSuffixes.end()) {
+                        LOG_ERROR("Invalid suffix '{}' for mnemonic '{}' at line {} column {}", suffix, mnemonicName, lineTokens[0].line, lineTokens[0].column);
+                    }
+                    mnemonic.suffix = suffix;
+                }
+                instruction.mnemonic = mnemonic;
+                parseOperands(instruction, lineTokens, ast);
+                continue;
+            }
+
             // Labels
-            else if (lineTokens[0].type == Token::Type::Identifier && lineTokens[1].type == Token::Type::Colon && lineTokens[2].type == Token::Type::EOL) {
+            if (lineTokens[0].type == Token::Type::Identifier && lineTokens[1].type == Token::Type::Colon && lineTokens[2].type == Token::Type::EOL) {
                 ast.back().items.push_back(Label{ lineTokens[0].lexeme });
             }
             // Symbol assignments

@@ -13,6 +13,14 @@ set(SOURCES
     src/lexer/lexer.h
     src/parser/parser.cpp
     src/parser/parser.h
+    src/interpreter/instructions.cpp
+    src/interpreter/instructions.h
+    src/interpreter/interpreter.cpp
+    src/interpreter/interpreter.h
+    src/interpreter/memory.h
+    src/interpreter/registers.h
+    src/interpreter/syscalls.cpp
+    src/interpreter/syscalls.h
     src/main.cpp
 )
 
