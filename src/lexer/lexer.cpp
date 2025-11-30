@@ -48,7 +48,6 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
             }
 
             auto uc = static_cast<unsigned char>(c);
-            u32 column = i;
 
             if (c == '\"') {
                 if (!inString) {
@@ -81,6 +80,9 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                 case ' ':
                     endCurrentLexemes();
                     continue;
+
+                case '\t':
+                    endCurrentLexemes();
 
                 case '.':
                     endCurrentLexemes();
