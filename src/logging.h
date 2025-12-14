@@ -31,7 +31,7 @@ inline std::string shortenPath(const char* inputPath) {
 do { \
     if (true) { \
         const auto sourceLocation = std::source_location::current(); \
-        std::cout << RED(std::format("{}:{} ({}) ERROR: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))); \
+        std::cout << RED(std::format("{}:{} ({}) ERROR: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
     } \
      __builtin_trap(); \
      std::exit(1); \
@@ -41,7 +41,7 @@ do { \
 do { \
     if (logLevel == LogLevel::Warning || logLevel == LogLevel::Info || logLevel == LogLevel::Debug) { \
         const auto sourceLocation = std::source_location::current(); \
-        std::cout << YELLOW(std::format("{}:{} ({}) WARNING: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))); \
+        std::cout << YELLOW(std::format("{}:{} ({}) WARNING: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
     } \
 } while (0)
 
@@ -49,7 +49,7 @@ do { \
 do { \
     if (logLevel == LogLevel::Info || logLevel == LogLevel::Debug) { \
         const auto sourceLocation = std::source_location::current(); \
-        std::cout << std::format("{}:{} ({}) INFO: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__)); \
+        std::cout << std::format("{}:{} ({}) INFO: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__)) << std::flush; \
     } \
 } while (0)
 
@@ -57,6 +57,6 @@ do { \
 do { \
     if (logLevel == LogLevel::Debug) { \
         const auto sourceLocation = std::source_location::current(); \
-        std::cout << BLUE(std::format("{}:{} ({}) DEBUG: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))); \
+        std::cout << BLUE(std::format("{}:{} ({}) DEBUG: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
     } \
 } while (0)

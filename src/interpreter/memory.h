@@ -58,8 +58,7 @@ class Memory {
 
         template <std::unsigned_integral T>
         void readMemory(const u64 address, T& data) {
-            /* data has to be zeroed before reading */
-
+            data = 0;
             u32 dataSize = sizeof(data);
             for (u32 i = 0; i < dataSize / sizeof(u8); ++i) {
                 u32 offset = (address + i) % PageSize;

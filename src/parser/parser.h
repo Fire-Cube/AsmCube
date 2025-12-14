@@ -24,7 +24,10 @@ struct Label {
 struct Directive {
     enum class Name {
         global,
+        globl,
         ascii,
+        quad,
+        byte,
         skip,
     };
     Name name;
@@ -43,6 +46,7 @@ enum class IgnoredDirectives {
     cfi_endproc,
     cfi_undefined,
     size,
+    file,
 };
 
 enum class CondCode {

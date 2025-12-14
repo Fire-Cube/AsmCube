@@ -8,18 +8,49 @@
 #include "mnemonics.h"
 
 u64 resolveMemory(const Memory& memory, GlobalState& globalState) {
-    u64 address = 0;
+    u64 displacement = 0;
+    u64 base = 0;
+    u64 index = 0;
+    u64 scale = 1;
+
     if (memory.disp.has_value()) {
         if (std::holds_alternative<u64>(*memory.disp)) {
-            address += std::get<u64>(*memory.disp);
+            displacement = std::get<u64>(*memory.disp);
         }
         else if (std::holds_alternative<Label>(*memory.disp)) {
-            address += globalState.symbolTable.findSymbol(std::get<Label>(*memory.disp).name).address;
+            displacement = globalState.symbolTable.findSymbol(std::get<Label>(*memory.disp).name).address;
         }
     }
+
     if (memory.base.has_value()) {
-        address += *globalState.cpu.reg64.at(memory.base.value().name);
+        base = *globalState.cpu.reg64.at(memory.base.value().name);
     }
+
+    if (memory.index.has_value()) {
+        index = *globalState.cpu.reg64.at(memory.index.value().name);
+    }
+
+    if (memory.scale.has_value()) {
+        switch (memory.scale.value()) {
+            case Scale::One:
+                scale = 1;
+                break;
+
+            case Scale::Two:
+                scale = 2;
+                break;
+
+            case Scale::Four:
+                scale = 4;
+                break;
+
+            case Scale::Eight:
+                scale = 8;
+                break;
+        }
+    }
+
+    const u64 address = displacement + base + (index * scale);
     return address;
 }
 
@@ -183,6 +214,11 @@ std::vector<u8> decodeAscii(const std::string& text) {
                     ++i;
                     break;
 
+                case '0':
+                    result.push_back('\0');
+                    ++i;
+                    break;
+
                 default:
                     LOG_ERROR("Unknown escape sequence in string '{}'", text);
             }
@@ -224,6 +260,43 @@ int run(Ast& ast) {
                                         }
                                         globalState.memory.setPermission(symbol.address, buffer.size(), Interpreter::Permission{ true, false, false });
                                     }
+                                    break;
+
+                                case Directive::Name::byte:
+                                    {
+                                        u32 size = directive.arguments.size();
+                                        Symbol symbol;
+                                        if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                            symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                        }
+                                        else {
+                                            symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                        }
+                                        for (u32 i = 0; i < size; ++i) {
+                                            u8 value = static_cast<u8>(std::stoull(directive.arguments[i]));
+                                            globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
+                                        }
+                                        globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, false, false });
+                                    }
+                                    break;
+
+                                case Directive::Name::quad:
+                                    {
+                                        u32 size = directive.arguments.size() * 8;
+                                        Symbol symbol;
+                                        if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                            symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                        }
+                                        else {
+                                            symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                        }
+                                        for (u32 i = 0; i < directive.arguments.size(); ++i) {
+                                            u64 value = static_cast<u64>(std::stoull(directive.arguments[i]));
+                                            globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
+                                        }
+                                        globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, false, false });
+                                    }
+                                    break;
 
                                 default:
                                     break;

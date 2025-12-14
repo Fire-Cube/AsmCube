@@ -30,7 +30,7 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
     for (const auto& line : inputLines) {
         ++lineNumber;
 
-        const auto firstNonSpace = line.find_first_not_of(' ');
+        const auto firstNonSpace = line.find_first_not_of(" \t");
         if (firstNonSpace == std::string::npos) {
             continue;
         }
@@ -83,11 +83,28 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
 
                 case '\t':
                     endCurrentLexemes();
+                    continue;
 
                 case '.':
-                    endCurrentLexemes();
-                    tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
-                    continue;
+                    {
+                        char nextChar = (i + 1 < line.size()) ? line[i + 1] : '\0';
+                        unsigned char unextChar = static_cast<unsigned char>(nextChar);
+                        bool atLineStart = (i == firstNonSpace);
+                        if (!atLineStart && (std::isalpha(unextChar) || nextChar == '_' || nextChar == '.')) {
+                            if (!buildingIdentifier && !buildingRegister && !buildingSymbolType) {
+                                endCurrentLexemes();
+                                buildingIdentifier = true;
+                                tokens.push_back(Token{ Token::Type::Identifier, ".", lineNumber, column, 1 });
+                            } else {
+                                tokens.back().lexeme += c;
+                                tokens.back().length += 1;
+                            }
+                        } else {
+                            endCurrentLexemes();
+                            tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
+                        }
+                        continue;
+                    }
 
                 case ',':
                     endCurrentLexemes();

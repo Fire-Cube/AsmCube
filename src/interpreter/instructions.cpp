@@ -14,13 +14,18 @@ u32 lea(GlobalState& globalState, Instruction& instruction) {
 }
 
 u32 Xor(GlobalState& globalState, Instruction& instruction) {
-    auto srcName = std::get<Register>(instruction.operands[0]).name.substr(1);
-    auto dstName = std::get<Register>(instruction.operands[1]).name.substr(1);
-
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     u64 right = readOperand(instruction.operands[1], operandSize, globalState);
     writeOperand(instruction.operands[1], left ^ right, globalState);
+    return 0;
+}
+
+u32 add(GlobalState& globalState, Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    writeOperand(instruction.operands[1], left + right, globalState);
     return 0;
 }
 

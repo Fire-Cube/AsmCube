@@ -40,19 +40,36 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
             break;
 
         case 2:
-            // (base, index, scale)
-            auto scale = magic_enum::enum_cast<Scale>(lineTokens[operandCommaPositions[1] + 1].lexeme.substr(1));
-            if (!scale.has_value()) {
-                LOG_ERROR("Invalid scale '{}' (line {} column {})", lineTokens[operandCommaPositions[1] + 1].lexeme, lineTokens[operandCommaPositions[1] + 1].line, lineTokens[operandCommaPositions[1] + 1].column);
-                return 1;
-            }
+            {
+                // (base, index, scale)
+                Scale scale;
+                switch (std::stoull(lineTokens[operandCommaPositions[1] + 1].lexeme)) {
+                    case 1:
+                        scale = Scale::One;
+                        break;
 
-            instruction.operands.push_back(Memory{
-                .base = Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
-                .index = Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) },
-                .scale = scale.value()
-            });
-            break;
+                    case 2:
+                        scale = Scale::Two;
+                        break;
+
+                    case 4:
+                        scale = Scale::Four;
+                        break;
+
+                    case 8:
+                        scale = Scale::Eight;
+                        break;
+
+                    default:
+                        LOG_ERROR("Invalid scale '{}' (line {} column {})", lineTokens[operandCommaPositions[1] + 1].lexeme, lineTokens[operandCommaPositions[1] + 1].line, lineTokens[operandCommaPositions[1] + 1].column);
+                }
+                instruction.operands.push_back(Memory{
+                    .base = Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
+                    .index = Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) },
+                    .scale = scale
+                });
+                break;
+            }
     }
 
     if (hasDisplacement) {
@@ -71,7 +88,7 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
 }
 
 int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens, std::vector<Section>& ast) {
-    std::vector<std::vector<u32>> operandCommaPositions;
+    std::vector<std::vector<u32>> operandCommaPositions { {} , {} };
     bool inParen = false;
     u32 parameterCommaPos = 0;
 
@@ -93,12 +110,11 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
                     LOG_ERROR("Unmatched closing parenthesis (line {} column {})", lineTokens[i].line, lineTokens[i].column);
                 }
                 inParen = false;
-                ++operandIndex;
                 break;
 
             case Token::Type::Comma:
                 if (inParen) {
-                    if (operandCommaPositions.size() > 2) {
+                    if (operandCommaPositions[operandIndex].size() > 2) {
                         LOG_ERROR("More than three operands inside parentheses are not supported (line {} column {})", lineTokens[i].line, lineTokens[i].column);
                     }
                     operandCommaPositions[operandIndex].push_back(i);
@@ -108,6 +124,7 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
                         LOG_ERROR("More than two parameters are not supported (line {} column {})", lineTokens[i].line, lineTokens[i].column);
                     }
                     parameterCommaPos = i;
+                    ++operandIndex;
                 }
                 break;
         }
@@ -124,7 +141,7 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
                 if (isNumber(immediateValue)) {
-                    instruction.operands.push_back(Immediate{ .integer = std::stoi(immediateValue) });
+                    instruction.operands.push_back(Immediate{ .integer = std::stoull(immediateValue) });
                 }
                 else if (lineTokens[2].type == Token::Type::Identifier) {
                     instruction.operands.push_back(Immediate{ .symbol = lineTokens[2].lexeme});
@@ -132,7 +149,7 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
             }
         }
         if (openBracketPositions[1] != 0) {
-            parseOperand(instruction, lineTokens, parameterCommaPos, operandCommaPositions[1]); // Same here
+            parseOperand(instruction, lineTokens, parameterCommaPos + 1, operandCommaPositions[1]); // Same here
         }
         else {
             if (lineTokens[parameterCommaPos + 1].type == Token::Type::Register) {
@@ -157,7 +174,6 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
         }
     }
 
-
     for (const auto& lineTokens : inputLines) {
         if (lineTokens.empty()) {
             continue;
@@ -166,24 +182,35 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
         if (lineTokens[0].type == Token::Type::Dot) {
             if (lineTokens[1].type == Token::Type::Identifier) {
                 if (lineTokens[1].lexeme == "section") {
-                    if (lineTokens[2].type == Token::Type::Dot && lineTokens[3].type == Token::Type::Identifier) {
-                        Section section = {lineTokens [3].lexeme, {} };
+                    if (lineTokens[2].type == Token::Type::Identifier) {
+                        Section section = {lineTokens[2].lexeme.substr(1), {} };
                         ast.push_back(section);
                     }
+                }
+                else if (lineTokens[1].lexeme == "text" || lineTokens[1].lexeme == "data" || lineTokens[1].lexeme == "bss" || lineTokens[1].lexeme == "rodata") {
+                    Section section = {lineTokens [1].lexeme, {} };
+                    ast.push_back(section);
                 }
                 else if (auto value = magic_enum::enum_cast<Directive::Name>(lineTokens[1].lexeme)) {
                     Directive directive;
                     directive.name = *value;
                     for (u32 i = 2; i < lineTokens.size() - 1; ++i) { // Exclude EOL
+                        if (lineTokens[i].type == Token::Type::Comma) {
+                            continue;
+                        }
                         directive.arguments.push_back(lineTokens[i].lexeme);
                     }
+                    // if (ast.empty()) {
+                    //     LOG_INFO("Implicit .text section created");
+                    //     ast.push_back(Section{ "text", {} });
+                    // }
                     ast.back().items.push_back(directive);
                 }
                 else if (auto ignored = magic_enum::enum_cast<IgnoredDirectives>(lineTokens[1].lexeme)) {
-                    LOG_WARNING("Ignoring directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column - 1);
+                    LOG_WARNING("Ignoring directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);
                 }
                 else {
-                    LOG_WARNING("Unknown directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column - 1);
+                    LOG_WARNING("Unknown directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);
                 }
             }
         }
@@ -203,7 +230,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                 mnemonicName = lineTokens[mnemonicPos].lexeme;
             }
             else if (instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1))) {
-                mnemonicName = lineTokens[mnemonicPos].lexeme.substr(1);
+                mnemonicName = lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1);
                 suffix = lineTokens[0].lexeme.substr(lineTokens[0].lexeme.size() - 1);
             }
 

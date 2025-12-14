@@ -22,12 +22,28 @@ class SymbolTable {
         std::unordered_map<std::string, Symbol> symbols;
 
         Symbol& addSymbol(std::string symbolName, u64 size) {
-            if (symbols.find(symbolName) != symbols.end())
+            if (symbols.find(symbolName) != symbols.end()) {
                 LOG_ERROR("Symbol '{}' already defined!", symbolName);
-
+            }
             symbols[symbolName] = (Symbol{ addressPointer, size });
             addressPointer += size;
             return symbols[symbolName];
+        }
+        Symbol extendSymbol(std::string symbolName, u64 additionalSize) {
+            if (symbols.find(symbolName) == symbols.end()) {
+                LOG_ERROR("Symbol '{}' not defined!", symbolName);
+            }
+
+            Symbol newSymbol = symbols[symbolName];
+            newSymbol.address = addressPointer;
+
+            symbols[symbolName].size += additionalSize;
+            addressPointer += additionalSize;
+
+            return newSymbol;
+        }
+        bool hasSymbol(std::string symbolName) {
+            return symbols.find(symbolName) != symbols.end();
         }
         Symbol& findSymbol(std::string symbolName) {
             if (symbols.find(symbolName) != symbols.end()) {
