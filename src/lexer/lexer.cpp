@@ -87,24 +87,16 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
 
                 case '.':
                     {
-                        char nextChar = (i + 1 < line.size()) ? line[i + 1] : '\0';
-                        unsigned char unextChar = static_cast<unsigned char>(nextChar);
-                        bool atLineStart = (i == firstNonSpace);
-                        if (!atLineStart && (std::isalpha(unextChar) || nextChar == '_' || nextChar == '.')) {
-                            if (!buildingIdentifier && !buildingRegister && !buildingSymbolType) {
-                                endCurrentLexemes();
-                                buildingIdentifier = true;
-                                tokens.push_back(Token{ Token::Type::Identifier, ".", lineNumber, column, 1 });
-                            } else {
-                                tokens.back().lexeme += c;
-                                tokens.back().length += 1;
-                            }
-                        } else {
+                        if (buildingIdentifier) {
+                            tokens.back().lexeme += c;
+                            tokens.back().length += 1;
+                        }
+                        else {
                             endCurrentLexemes();
                             tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
                         }
-                        continue;
                     }
+                    continue;
 
                 case ',':
                     endCurrentLexemes();
@@ -117,8 +109,20 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                     continue;
 
                 case '-':
-                    endCurrentLexemes();
-                    tokens.push_back(Token{ Token::Type::Dash, "-", lineNumber, column, 1 });
+                    {
+                        char nextChar = (i + 1 < line.size()) ? line[i + 1] : '\0';
+                        unsigned char unsignedNextChar = static_cast<unsigned char>(nextChar);
+
+                        if (std::isdigit(unsignedNextChar) && !buildingIdentifier && !buildingImmediate && !buildingRegister && !buildingSymbolType) {
+                            endCurrentLexemes();
+                            buildingNumber = true;
+                            tokens.push_back(Token{ Token::Type::NegativeNumber, "-", lineNumber, column, 1 });
+                        }
+                        else {
+                            endCurrentLexemes();
+                            tokens.push_back(Token{ Token::Type::Dash, "-", lineNumber, column, 1 });
+                        }
+                    }
                     continue;
 
                 case ':':

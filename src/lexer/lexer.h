@@ -17,6 +17,7 @@ struct Token {
         Colon,
         Dash,
         Number,
+        NegativeNumber,
         String,
         EOL,
         Register,

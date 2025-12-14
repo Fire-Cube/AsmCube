@@ -74,8 +74,8 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
 
     if (hasDisplacement) {
         auto dispToken = lineTokens[operandStart];
-        if (dispToken.type == Token::Type::Number) {
-            std::get<Memory>(instruction.operands.back()).disp = std::stoull(dispToken.lexeme);
+        if (dispToken.type == Token::Type::Number || dispToken.type == Token::Type::NegativeNumber) {
+            std::get<Memory>(instruction.operands.back()).disp = std::stoll(dispToken.lexeme);
         }
         else if (dispToken.type == Token::Type::Identifier) {
             std::get<Memory>(instruction.operands.back()).disp = Label{ dispToken.lexeme };
@@ -182,8 +182,8 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
         if (lineTokens[0].type == Token::Type::Dot) {
             if (lineTokens[1].type == Token::Type::Identifier) {
                 if (lineTokens[1].lexeme == "section") {
-                    if (lineTokens[2].type == Token::Type::Identifier) {
-                        Section section = {lineTokens[2].lexeme.substr(1), {} };
+                    if (lineTokens[2].type == Token::Type::Dot && lineTokens[3].type == Token::Type::Identifier) {
+                        Section section = {lineTokens[3].lexeme, {} };
                         ast.push_back(section);
                     }
                 }
@@ -270,7 +270,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                     });
             }
             else {
-                LOG_WARNING("Unknown mnemonic '{}' at line {} column {}", lineTokens[0].lexeme, lineTokens[0].line, lineTokens[0].column - 1);
+                LOG_WARNING("Unknown mnemonic '{}' at line {} column {}", lineTokens[0].lexeme, lineTokens[0].line, lineTokens[0].column);
             }
         }
     }

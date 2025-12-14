@@ -124,7 +124,7 @@ enum class Scale {
 };
 
 struct Memory {
-    std::optional<std::variant<u64, Label>> disp;
+    std::optional<std::variant<s64, Label>> disp;
     std::optional<Register> base;
     std::optional<Register> index;
     std::optional<Scale> scale;
