@@ -200,10 +200,10 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                         }
                         directive.arguments.push_back(lineTokens[i].lexeme);
                     }
-                    // if (ast.empty()) {
-                    //     LOG_INFO("Implicit .text section created");
-                    //     ast.push_back(Section{ "text", {} });
-                    // }
+                    if (ast.empty()) {
+                        LOG_INFO("Implicit .text section created");
+                        ast.push_back(Section{ "text", {} });
+                    }
                     ast.back().items.push_back(directive);
                 }
                 else if (auto ignored = magic_enum::enum_cast<IgnoredDirectives>(lineTokens[1].lexeme)) {
