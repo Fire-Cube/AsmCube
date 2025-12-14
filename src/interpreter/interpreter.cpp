@@ -14,16 +14,24 @@ u64 resolveMemory(const Memory& memory, GlobalState& globalState) {
     u64 scale = 1;
 
     if (memory.disp.has_value()) {
-        if (std::holds_alternative<u64>(*memory.disp)) {
-            displacement = std::get<u64>(*memory.disp);
+        if (std::holds_alternative<s64>(*memory.disp)) {
+            displacement = std::get<s64>(*memory.disp);
         }
         else if (std::holds_alternative<Label>(*memory.disp)) {
             displacement = globalState.symbolTable.findSymbol(std::get<Label>(*memory.disp).name).address;
+            if (memory.base.has_value() && memory.base.value().name == "rip") {
+                displacement -= globalState.cpu.rip + 8;
+            }
         }
     }
 
     if (memory.base.has_value()) {
-        base = *globalState.cpu.reg64.at(memory.base.value().name);
+        if (memory.base.value().name == "rip") {
+            base = globalState.cpu.rip + 8;
+        }
+        else {
+            base = *globalState.cpu.reg64.at(memory.base.value().name);
+        }
     }
 
     if (memory.index.has_value()) {
@@ -232,142 +240,159 @@ std::vector<u8> decodeAscii(const std::string& text) {
 
 int run(Ast& ast) {
     GlobalState globalState{};
+    std::unordered_map<u64, Instruction> instructionMap{};
+    u64 instructionID = 0;
 
+    // Linking
+    LOG_DEBUG("Start linking...");
+
+    Interpreter::Permission permission{};
     for (const Section& section : ast) {
-        if (section.name == "rodata") {
-            // ToDo: only readable
-            std::string actualSymbolName;
-            for (const auto& item : section.items) {
-                switch (item.index()) {
-                    case 0:
-                        {
-                            // Label
-                            actualSymbolName = std::get<Label>(item).name;
-                            break;
-                        }
-
-                    case 1:
-                        {
-                            // Directive
-                            const Directive& directive = std::get<Directive>(item);
-                            switch (directive.name) {
-                                case Directive::Name::ascii:
-                                    {
-                                        auto buffer = decodeAscii(directive.arguments[0]);
-                                        Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
-                                        for (u64 i = 0; i < buffer.size(); ++i) {
-                                            globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
-                                        }
-                                        globalState.memory.setPermission(symbol.address, buffer.size(), Interpreter::Permission{ true, false, false });
-                                    }
-                                    break;
-
-                                case Directive::Name::byte:
-                                    {
-                                        u32 size = directive.arguments.size();
-                                        Symbol symbol;
-                                        if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
-                                            symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
-                                        }
-                                        else {
-                                            symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                        }
-                                        for (u32 i = 0; i < size; ++i) {
-                                            u8 value = static_cast<u8>(std::stoull(directive.arguments[i]));
-                                            globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
-                                        }
-                                        globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, false, false });
-                                    }
-                                    break;
-
-                                case Directive::Name::quad:
-                                    {
-                                        u32 size = directive.arguments.size() * 8;
-                                        Symbol symbol;
-                                        if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
-                                            symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
-                                        }
-                                        else {
-                                            symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                        }
-                                        for (u32 i = 0; i < directive.arguments.size(); ++i) {
-                                            u64 value = static_cast<u64>(std::stoull(directive.arguments[i]));
-                                            globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
-                                        }
-                                        globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, false, false });
-                                    }
-                                    break;
-
-                                default:
-                                    break;
-                            }
-                            break;
-                        }
-
-                    case 3:
-                        {
-                            // SymbolAssignment
-                            const SymbolAssignment& symbolAssignment = std::get<SymbolAssignment>(item);
-                            const std::vector<Token>& tokens = symbolAssignment.expression.tokens;
-                            if (tokens[0].type == Token::Type::Dot && tokens[1].type == Token::Type::Dash) {
-                                globalState.symbolImmediates.push_back(SymbolImmediate{ symbolAssignment.name, globalState.symbolTable.symbols[tokens[2].lexeme].size });
-                            }
-                            break;
-                        }
-
-                    default:
-                        break;
-                }
-            }
+        if (section.name == "rodata" || section.name.rfind("rodata.") == 0) {
+            permission = Interpreter::Permission{ true, false, false };
         }
-        else if (section.name == "bss") {
-            std::string actualSymbolName;
-            for (const auto& item : section.items) {
-                switch (item.index()) {
-                    case 0:
-                        {
-                            // Label
-                            actualSymbolName = std::get<Label>(item).name;
-                            break;
-                        }
-
-                    case 1:
-                        {
-                            // Directive
-                            const Directive& directive = std::get<Directive>(item);
-                            switch (directive.name) {
-                                case Directive::Name::skip:
-                                    u32 size = std::stoull(directive.arguments[0]);
-                                    Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                    for (u64 i = 0; i < size; ++i) {
-                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, 0u);
-                                    }
-                                    globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, true, false });
-                                    break;
-                            }
-                        }
-                        break;
-                }
-            }
+        else if (section.name == "data" || section.name.rfind("data.") == 0) {
+            permission = Interpreter::Permission{ true, true, false };
         }
-
-        else if (section.name == "text") {
-            for (u32 i = 0; i < section.items.size(); ++i) {
-                auto& item = section.items[i];
-                switch (item.index()) {
-                    case 2:
-                        {
-                            Instruction instruction = std::get<Instruction>(item);
-                            u32 shouldExit = instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
-                            if (shouldExit != 0) {
-                                return 0;
-                            }
-                            break;
-                        }
-                }
-            }
+        else if (section.name == "bss" || section.name.rfind("bss.") == 0) {
+            permission = Interpreter::Permission{ true, true, false };
         }
+        else if (section.name == "text" || section.name.rfind("text.") == 0) {
+            permission = Interpreter::Permission{ true, false, true };
+        }
+        else {
+            LOG_INFO("Unknown section name '{}'", section.name);
+        }
+        std::string actualSymbolName;
+        for (const auto& item : section.items) {
+              switch (item.index()) {
+                  case 0:
+                      {
+                          // Label
+                          actualSymbolName = std::get<Label>(item).name;
+                          break;
+                      }
 
+                  case 1:
+                      {
+                          // Directive
+                          const Directive& directive = std::get<Directive>(item);
+                          switch (directive.name) {
+                              case Directive::Name::ascii:
+                                  {
+                                      auto buffer = decodeAscii(directive.arguments[0]);
+                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
+                                      for (u64 i = 0; i < buffer.size(); ++i) {
+                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
+                                      }
+                                      globalState.memory.setPermission(symbol.address, buffer.size(), permission);
+                                  }
+                                  break;
+
+                              case Directive::Name::skip:
+                                  {
+                                      u32 size = std::stoull(directive.arguments[0]);
+                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                      for (u64 i = 0; i < size; ++i) {
+                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, 0u);
+                                      }
+                                      globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, true, false });
+                                  }
+                                  break;
+
+                              case Directive::Name::byte:
+                                  {
+                                      u32 size = directive.arguments.size();
+                                      Symbol symbol;
+                                      if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                          symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                      }
+                                      else {
+                                          symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                      }
+                                      for (u32 i = 0; i < size; ++i) {
+                                          u8 value = static_cast<u8>(std::stoull(directive.arguments[i]));
+                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
+                                      }
+                                      globalState.memory.setPermission(symbol.address, size, permission);
+                                  }
+                                  break;
+
+                              case Directive::Name::quad:
+                                  {
+                                      u32 size = directive.arguments.size() * 8;
+                                      Symbol symbol;
+                                      if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                          symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                      }
+                                      else {
+                                          symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                      }
+                                      for (u32 i = 0; i < directive.arguments.size(); ++i) {
+                                          u64 value = static_cast<u64>(std::stoull(directive.arguments[i]));
+                                          globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
+                                      }
+                                      globalState.memory.setPermission(symbol.address, size, permission);
+                                  }
+                                  break;
+
+                              default:
+                                  break;
+                          }
+                          break;
+                      }
+
+                  case 2:
+                      {
+                          if (section.name != "text") {
+                              LOG_ERROR("Instructions can only be in the .text section");
+                          }
+
+                          Instruction instruction = std::get<Instruction>(item);
+                          instructionMap[instructionID] = instruction;
+                          Symbol symbol;
+                          if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                              symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
+                          }
+                          else {
+                              symbol = globalState.symbolTable.addSymbol(actualSymbolName, 8);
+                          }
+                          globalState.memory.writeMemoryNoExcept(symbol.address, instructionID);
+                          globalState.memory.setPermission(symbol.address, 8, permission);
+                          ++instructionID;
+                          break;
+                      }
+                  case 3:
+                      {
+                          // SymbolAssignment
+                          const SymbolAssignment& symbolAssignment = std::get<SymbolAssignment>(item);
+                          const std::vector<Token>& tokens = symbolAssignment.expression.tokens;
+                          if (tokens[0].type == Token::Type::Dot && tokens[1].type == Token::Type::Dash) {
+                              globalState.symbolImmediates.push_back(SymbolImmediate{ symbolAssignment.name, globalState.symbolTable.symbols[tokens[2].lexeme].size });
+                          }
+                          break;
+                      }
+              }
+        }
+    }
+
+    // Execution
+    LOG_DEBUG("Linking completed. Starting execution...");
+
+    u64& instructionPointer = globalState.cpu.rip;
+    instructionPointer = globalState.symbolTable.findSymbol("_start").address;
+    while (true) {
+        instructionID = 0;
+        globalState.memory.readMemory(instructionPointer, instructionID);
+        if (globalState.memory.getBytePermission(instructionPointer).execute == false) {
+            LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
+        }
+        Instruction instruction = instructionMap[instructionID];
+        u32 shouldExit = instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
+        if (shouldExit != 0) {
+            return 0;
+        }
+        instructionPointer += 8;
     }
 
     return 0;
