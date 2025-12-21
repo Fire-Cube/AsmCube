@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2025 AsmCube Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 cmake_minimum_required(VERSION 3.24)
 
 project(AsmCube LANGUAGES CXX)
