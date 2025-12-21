@@ -70,9 +70,13 @@ inline std::unordered_map<std::string, InstructionDetails> instructionDefinition
     {"mov", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, {}, Instructions::mov}},
     {"xor", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, {}, Instructions::Xor}},
     {"add", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, {}, Instructions::add}},
-    {"ret", {InstructionSet::x86_64, {64}, {}, {"q"}, {},nullptr}},
-    {"hlt", {InstructionSet::x86_64, {}, {}, {}, {},nullptr}},
-    {"push", {InstructionSet::x86_64, {64}, {}, {"q"}, {},nullptr}},
+    {"sub", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, {}, Instructions::sub}},
+    {"push", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::push}},
+    {"pop", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::pop}},
+    {"call", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::call}},
+    {"ret", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::ret}},
+    {"hlt", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::hlt}},
+    {"leave", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::leave}},
     {"syscall", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::syscall}}
 };
 

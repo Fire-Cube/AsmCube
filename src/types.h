@@ -11,3 +11,27 @@ using u8 = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
+
+constexpr u64 operator""_KiB(u64 value) {
+    return value * 1024;
+}
+
+constexpr u64 operator""_MiB(u64 value) {
+    return value * 1024 * 1024;
+}
+
+constexpr u64 operator""_GiB(u64 value) {
+    return value * 1024 * 1024 * 1024;
+}
+
+constexpr u64 operator""_KB(u64 value) {
+    return value * 1000;
+}
+
+constexpr u64 operator""_MB(u64 value) {
+    return value * 1000 * 1000;
+}
+
+constexpr u64 operator""_GB(u64 value) {
+    return value * 1000 * 1000 * 1000;
+}

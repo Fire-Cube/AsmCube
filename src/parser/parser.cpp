@@ -158,6 +158,14 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
         }
 
     }
+    else {
+        if (lineTokens[1].type == Token::Type::Identifier) {
+            instruction.operands.push_back(Immediate{ .symbol = lineTokens[1].lexeme});
+        }
+        else if (lineTokens[1].type == Token::Type::Register) {
+            instruction.operands.push_back(Register{ lineTokens[1].lexeme });
+        }
+    }
     ast.back().items.push_back(instruction);
     return 0;
 }
@@ -260,6 +268,10 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
 
             // Labels
             if (lineTokens[0].type == Token::Type::Identifier && lineTokens[1].type == Token::Type::Colon && lineTokens[2].type == Token::Type::EOL) {
+                if (ast.empty()) {
+                    LOG_INFO("Implicit .text section created");
+                    ast.push_back(Section{ "text", {} });
+                }
                 ast.back().items.push_back(Label{ lineTokens[0].lexeme });
             }
             // Symbol assignments

@@ -134,15 +134,18 @@ u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& gl
                 if (immediate.integer.has_value()) {
                     return immediate.integer.value();
                 }
-                else if (immediate.symbol.has_value()) {
+                if (immediate.symbol.has_value()) {
                     for (const auto& symbolImmediate : globalState.symbolImmediates) {
                         if (symbolImmediate.name == immediate.symbol.value()) {
                             return symbolImmediate.value;
-
                         }
                     }
-                    LOG_ERROR("Unknown symbol immediate");
-                    return 0;
+                    for (const auto& [symbolName, symbol] : globalState.symbolTable.symbols) {
+                        if (symbolName == immediate.symbol.value()) {
+                            return symbol.address;
+                        }
+                    }
+                    LOG_ERROR("Unknown symbol immediate {}", immediate.symbol.value());
                 }
                 break;
             }
@@ -379,8 +382,16 @@ int run(Ast& ast) {
     // Execution
     LOG_DEBUG("Linking completed. Starting execution...");
 
+    // init RIP
     u64& instructionPointer = globalState.cpu.rip;
     instructionPointer = globalState.symbolTable.findSymbol("_start").address;
+
+    // init RSP
+    globalState.cpu.rsp = UINT64_MAX;
+
+    // init Stack
+    globalState.memory.setPermission(UINT64_MAX - 8_MiB, 8_MiB, { true, true, false });
+
     while (true) {
         instructionID = 0;
         globalState.memory.readMemory(instructionPointer, instructionID);
@@ -392,7 +403,6 @@ int run(Ast& ast) {
         if (shouldExit != 0) {
             return 0;
         }
-        instructionPointer += 8;
     }
 
     return 0;

@@ -10,7 +10,7 @@
 namespace Interpreter
 {
 
-constexpr u32 PageSize = 4096; // 4 KiB
+constexpr u32 PageSize = 4_KiB;
 
 struct Page {
     std::array<u8, PageSize> data {};
@@ -69,6 +69,17 @@ class Memory {
                 if (!page.initialized.test(offset)) {
                    LOG_DEBUG("Reading uninitialized memory at address 0x{:016x}", address + i);
                 }
+                data |= static_cast<T>(page.data[offset]) << (8 * i);
+            }
+        }
+
+        template <std::unsigned_integral T>
+        void readMemoryNoExcept(const u64 address, T& data) {
+            data = 0;
+            u32 dataSize = sizeof(data);
+            for (u32 i = 0; i < dataSize / sizeof(u8); ++i) {
+                u32 offset = (address + i) % PageSize;
+                Page& page = pages[(address + i) / PageSize];
                 data |= static_cast<T>(page.data[offset]) << (8 * i);
             }
         }
