@@ -10,6 +10,7 @@
     #define open _open
 #else
     #include <unistd.h>
+    #include <fcntl.h>
 #endif
 
 #include "syscalls.h"
