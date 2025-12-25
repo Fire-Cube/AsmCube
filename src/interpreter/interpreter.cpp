@@ -126,8 +126,20 @@ u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& gl
             {
                 // Register
                 auto& reg = std::get<Register>(operand);
-                return *globalState.cpu.reg64[reg.name.substr(1)];
-                // ToDo: handle other register sizes
+                std::string regName = reg.name.substr(1);
+                if (globalState.cpu.reg64.contains(regName)) {
+                    return *globalState.cpu.reg64[regName];
+                }
+                if (globalState.cpu.reg32.contains(regName)) {
+                    return *globalState.cpu.reg32[regName];
+                }
+                if (globalState.cpu.reg16.contains(regName)) {
+                    return *globalState.cpu.reg16[regName];
+                }
+                if (globalState.cpu.reg8.contains(regName)) {
+                    return *globalState.cpu.reg8[regName];
+                }
+                LOG_ERROR("Unknown register '{}'", regName);
             }
 
         case 1:
@@ -147,8 +159,14 @@ u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& gl
                         if (symbolName == immediate.symbol.value()) {
                             return symbol.address;
                         }
+                        if (auto pos = immediate.symbol.value().find('@'); pos != std::string::npos) {
+                            std::string baseSymbolName = immediate.symbol.value().substr(0, pos);
+                            if (symbolName == baseSymbolName) {
+                                return symbol.address;
+                            }
+                        }
                     }
-                    LOG_ERROR("Unknown symbol immediate {}", immediate.symbol.value());
+                    LOG_ERROR("Unknown symbol {}", immediate.symbol.value());
                 }
                 break;
             }
@@ -187,8 +205,24 @@ void writeOperand(const Operand& operand, const u64 value, GlobalState& globalSt
             {
                 // Register
                 auto& reg = std::get<Register>(operand);
-                *globalState.cpu.reg64[reg.name.substr(1)] = value;
-                break;
+                std::string regName = reg.name.substr(1);
+                if (globalState.cpu.reg64.contains(regName)) {
+                    *globalState.cpu.reg64[regName] = value;
+                    break;
+                }
+                if (globalState.cpu.reg32.contains(regName)) {
+                    *reinterpret_cast<u64*>(globalState.cpu.reg32[regName]) = value;
+                    break;
+                }
+                if (globalState.cpu.reg16.contains(regName)) {
+                    *globalState.cpu.reg16[regName] = static_cast<u16>(value);
+                    break;
+                }
+                if (globalState.cpu.reg8.contains(regName)) {
+                    *globalState.cpu.reg8[regName] = static_cast<u8>(value);
+                    break;
+                }
+                LOG_ERROR("Unknown register '{}'", regName);
             }
 
         case 2:
@@ -253,7 +287,10 @@ int run(Ast& ast) {
     LOG_DEBUG("Start linking...");
 
     Interpreter::Permission permission{};
-    for (const Section& section : ast) {
+    for (Section& section : ast) {
+        if (section.name[0] == '.') {
+            section.name = section.name.substr(1);
+        }
         if (section.name == "rodata" || section.name.rfind("rodata.") == 0) {
             permission = Interpreter::Permission{ true, false, false };
         }
@@ -287,6 +324,18 @@ int run(Ast& ast) {
                               case Directive::Name::ascii:
                                   {
                                       auto buffer = decodeAscii(directive.arguments[0]);
+                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
+                                      for (u64 i = 0; i < buffer.size(); ++i) {
+                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
+                                      }
+                                      globalState.memory.setPermission(symbol.address, buffer.size(), permission);
+                                  }
+                                  break;
+
+                              case Directive::Name::asciz:
+                                  {
+                                      auto buffer = decodeAscii(directive.arguments[0]);
+                                      buffer.push_back('\0');
                                       Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
                                       for (u64 i = 0; i < buffer.size(); ++i) {
                                           globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);

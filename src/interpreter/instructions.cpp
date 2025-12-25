@@ -87,6 +87,12 @@ u32 ret(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
+u32 jmp(GlobalState& globalState, Instruction& instruction) {
+    std::string targetSize = "q";
+    globalState.cpu.rip = readOperand(instruction.operands[0], targetSize, globalState);
+    return 0;
+}
+
 u32 hlt(GlobalState& globalState, Instruction& instruction) {
     LOG_INFO("HLT encountered. Halting execution.");
     std::exit(0);

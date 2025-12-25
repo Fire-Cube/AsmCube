@@ -3,7 +3,6 @@
 
 #include <cctype>
 #include <filesystem>
-#include <format>
 #include <string>
 
 #include "lexer/lexer.h"
@@ -31,26 +30,26 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
     };
 
     for (const auto& line : inputLines) {
+        bool exitLoop = false;
+        bool firstDotWasSplitted = false;
+
         ++lineNumber;
+
+        endCurrentLexemes();
 
         const auto firstNonSpace = line.find_first_not_of(" \t");
         if (firstNonSpace == std::string::npos) {
             continue;
         }
 
-        u32 column = 0;
-
-        endCurrentLexemes();
-
-        bool exitLoop = false;
-
         for (u32 i = 0; i < line.size(); ++i) {
-            char c = line[i];
+            u32& column = i;
+            const char c = line[i];
             if (exitLoop) {
                 break;
             }
 
-            auto uc = static_cast<unsigned char>(c);
+            const auto uc = static_cast<unsigned char>(c);
 
             if (c == '\"') {
                 if (!inString) {
@@ -95,8 +94,19 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                             tokens.back().length += 1;
                         }
                         else {
-                            endCurrentLexemes();
-                            tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
+                            if (column == firstNonSpace && !firstDotWasSplitted) {
+                                firstDotWasSplitted = true;
+                                endCurrentLexemes();
+                                tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
+                            }
+                            else if (firstDotWasSplitted && (std::isdigit(line[column + 1]) || std::isalpha(line[column + 1]) || line[column] == '_') || tokens.back().type == Token::Type::Identifier) {
+                                buildingIdentifier = true;
+                                tokens.push_back(Token{ Token::Type::Identifier, std::string(1, c), lineNumber, column, 1 });
+                            }
+                            else {
+                                endCurrentLexemes();
+                                tokens.push_back(Token{ Token::Type::Dot, ".", lineNumber, column, 1 });
+                            }
                         }
                     }
                     continue;
@@ -200,11 +210,9 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                     tokens.back().lexeme += c;
                     tokens.back().length += 1;
                 }
-                continue;
             }
-            // endCurrentLexemes();
         }
-        tokens.push_back(Token{ Token::Type::EOL, std::string{}, lineNumber, column, 0 });
+        tokens.push_back(Token{ Token::Type::EOL, std::string{}, lineNumber, static_cast<u32>(inputLines[lineNumber - 1].length()), 0 });
     }
     return 0;
 };

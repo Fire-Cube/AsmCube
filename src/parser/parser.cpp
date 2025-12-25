@@ -193,8 +193,8 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
         if (lineTokens[0].type == Token::Type::Dot) {
             if (lineTokens[1].type == Token::Type::Identifier) {
                 if (lineTokens[1].lexeme == "section") {
-                    if (lineTokens[2].type == Token::Type::Dot && lineTokens[3].type == Token::Type::Identifier) {
-                        Section section = {lineTokens[3].lexeme, {} };
+                    if (lineTokens[2].type == Token::Type::Identifier) {
+                        Section section = {lineTokens[2].lexeme.substr(1), {} };
                         ast.push_back(section);
                     }
                 }
@@ -219,6 +219,9 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                 }
                 else if (auto ignored = magic_enum::enum_cast<IgnoredDirectives>(lineTokens[1].lexeme)) {
                     LOG_WARNING("Ignoring directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);
+                }
+                else if (lineTokens.size() == 4 && lineTokens[1].type == Token::Type::Identifier && lineTokens[2].type == Token::Type::Colon) {
+                    ast.back().items.push_back(Label{ "." + lineTokens[1].lexeme });
                 }
                 else {
                     LOG_WARNING("Unknown directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);

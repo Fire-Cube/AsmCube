@@ -29,6 +29,7 @@ struct Directive {
         global,
         globl,
         ascii,
+        asciz,
         quad,
         byte,
         skip,
