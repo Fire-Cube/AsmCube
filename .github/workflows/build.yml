@@ -18,7 +18,7 @@ jobs:
         - name: Upload Windows artifact
           uses: actions/upload-artifact@v4
           with:
-            name: AsmCube Windows}}
+            name: AsmCube Windows
             path: Build\x64-Clang-Release\AsmCube.exe
 
   release-linux:
@@ -40,5 +40,5 @@ jobs:
         - name: Upload Linux artifact
           uses: actions/upload-artifact@v4
           with:
-            name: AsmCube Linux }}
+            name: AsmCube Linux
             path: Build/x64-Clang-Release/AsmCube
