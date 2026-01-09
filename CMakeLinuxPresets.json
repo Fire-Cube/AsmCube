@@ -12,12 +12,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/Build/${presetName}",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "clang-cl"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "intelliSenseMode": "windows-clang-x64"
-        }
+        "CMAKE_CXX_COMPILER": "clang++"
       }
     }
   ]
