@@ -79,6 +79,7 @@ inline std::unordered_map<std::string, InstructionDetails> instructionDefinition
     {"call", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::call}},
     {"ret", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::ret}},
     {"jmp", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::jmp}},
+    {"Jcc", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::Jcc}},
     {"hlt", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::hlt}},
     {"leave", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::leave}},
     {"syscall", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::syscall}}

@@ -366,7 +366,7 @@ int run(Ast& ast) {
                                           symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
                                       }
                                       for (u32 i = 0; i < size; ++i) {
-                                          u8 value = static_cast<u8>(std::stoull(directive.arguments[i]));
+                                          u8 value = static_cast<u8>(textToNumber(directive.arguments[i]));
                                           globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
                                       }
                                       globalState.memory.setPermission(symbol.address, size, permission);
@@ -384,7 +384,7 @@ int run(Ast& ast) {
                                           symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
                                       }
                                       for (u32 i = 0; i < directive.arguments.size(); ++i) {
-                                          u64 value = static_cast<u64>(std::stoull(directive.arguments[i]));
+                                          u64 value = textToNumber(directive.arguments[i]);
                                           globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
                                       }
                                       globalState.memory.setPermission(symbol.address, size, permission);

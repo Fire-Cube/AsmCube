@@ -7,3 +7,6 @@
 [submodule "src/externals/argparse"]
 	path = src/externals/argparse
 	url = https://github.com/p-ranav/argparse.git
+[submodule "src/externals/rapidyaml"]
+	path = src/externals/rapidyaml
+	url = https://github.com/biojppm/rapidyaml
