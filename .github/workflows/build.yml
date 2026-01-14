@@ -18,7 +18,7 @@ jobs:
         - name: Upload Windows artifact
           uses: actions/upload-artifact@v4
           with:
-            name: AsmCube Windows
+            name: AsmCube Windows Clang-CL
             path: Build\x64-Clang-Release\AsmCube.exe
 
   release-windows-msvc:
@@ -40,7 +40,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AsmCube Windows
+          name: AsmCube Windows MSVC
           path: Build\x64-MSVC-Release\AsmCube.exe
 
   release-linux:

@@ -14,15 +14,6 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++"
       }
-    },
-    {
-      "name": "x64-MSVC-Base",
-      "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/Build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "clang++"
-      }
     }
   ]
 }
