@@ -3,8 +3,8 @@ name: Build
 on: [push]
                 
 jobs:
-  release-windows:
-    name: windows
+  release-windows-clang_cl:
+    name: windows-clang_cl
     runs-on: windows-latest
     steps:
         - name: Checkout repository
@@ -20,6 +20,24 @@ jobs:
           with:
             name: AsmCube Windows
             path: Build\x64-Clang-Release\AsmCube.exe
+
+  release-windows-msvc:
+    name: windows-msvc
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          cmake --preset x64-MSVC-Release .
+          cmake --build ./Build/x64-MSVC-Release
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsmCube Windows
+          path: Build\x64-MSVC-Release\AsmCube.exe
 
   release-linux:
     name: linux

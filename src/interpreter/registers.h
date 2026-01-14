@@ -237,21 +237,18 @@ struct CPU {
             {"r15b", &r15b},
         };
 
-        unsigned int cf : 1 = 0; // Carry Flag
-        unsigned int pf : 1 = 0; // Parity Flag
-        unsigned int af : 1 = 0; // Auxiliary Carry Flag
-        unsigned int zf : 1 = 0; // Zero Flag
-        unsigned int sf : 1 = 0; // Sign Flag
-        unsigned int tf : 1 = 0; // Trap Flag
-        unsigned int If : 1 = 0; // Interrupt Enable Flag
-        unsigned int df : 1 = 0; // Direction Flag
-        unsigned int of : 1 = 0; // Overflow Flag
-        unsigned int iopl : 2 = 0; // I/O Privilege Level
-        unsigned int nt : 1 = 0; // Nested Task Flag
-        unsigned int rf : 1 = 0; // Resume Flag
-        unsigned int vm : 1 = 0; // Virtual-8086 Mode
-        unsigned int ac : 1 = 0; // Alignment Check / Access Control
-        unsigned int vif : 1 = 0; // Virtual Interrupt Flag
-        unsigned int vip : 1 = 0; // Virtual Interrupt Pending
-        unsigned int id : 1 = 0; // ID Flag
+        // Flags
+        bool cf = false; // Carry Flag
+        bool pf = false; // Parity Flag
+        bool zf = false; // Zero Flag
+        bool sf = false; // Sign Flag
+        bool of = false; // Overflow Flag
+
+        std::unordered_map<std::string, bool*> flags = {
+            {"cf",  &cf},
+            {"pf",  &pf},
+            {"zf",  &zf},
+            {"sf",  &sf},
+            {"of",  &of},
+        };
 };

@@ -189,6 +189,12 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
         else if (lineTokens[1].type == Token::Type::Register) {
             instruction.operands.push_back(Register{ lineTokens[1].lexeme });
         }
+        else if (lineTokens[1].type == Token::Type::Immediate) {
+            std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
+            if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
+                instruction.operands.push_back(Immediate{ .integer = textToNumber(immediateValue) });
+            }
+        }
     }
     ast.back().items.push_back(instruction);
     return 0;

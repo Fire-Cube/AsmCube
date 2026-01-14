@@ -5,6 +5,7 @@
 #include "parser/parser.h"
 #include "interpreter.h"
 #include "syscalls.h"
+#include "testcases/testcase.h"
 
 namespace Instructions
 {
@@ -59,7 +60,13 @@ u32 add(GlobalState& globalState, Instruction& instruction) {
     // SF
     globalState.cpu.sf = (res & sign) != 0;
 
-    writeOperand(instruction.operands[1], sum, globalState);
+    // ZF
+    globalState.cpu.zf = (res == 0);
+
+    // PF
+    globalState.cpu.pf = std::popcount(static_cast<u8>(res)) % 2 == 0;
+
+    writeOperand(instruction.operands[1], res, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -211,6 +218,53 @@ u32 syscall(GlobalState& globalState, Instruction& instruction) {
     if (globalState.cpu.rax == 60) {
         return 1;
     }
+    return 0;
+}
+
+u32 checkpoint(GlobalState& globalState, Instruction& instruction) {
+    if (globalState.testcase.testEnabled) {
+        std::string targetSize = "q";
+        u8 checkpointID = readOperand(instruction.operands[0], targetSize, globalState);
+        for (Testcases::Checkpoint& checkpoint : globalState.testcase.checkpoints) {
+            if (checkpoint.id == checkpointID) {
+                for (auto& [regName, value] : checkpoint.registers) {
+                    bool isCorrect = false;
+                    if (globalState.cpu.reg64.contains(regName)) {
+                        isCorrect = *globalState.cpu.reg64[regName] == value;
+                    }
+                    else if (globalState.cpu.reg32.contains(regName)) {
+                        isCorrect =  *globalState.cpu.reg32[regName] == static_cast<u32>(value);
+                    }
+                    else if (globalState.cpu.reg16.contains(regName)) {
+                        isCorrect = *globalState.cpu.reg16[regName] == static_cast<u16>(value);
+                    }
+                    else if (globalState.cpu.reg8.contains(regName)) {
+                        isCorrect = *globalState.cpu.reg8[regName] == static_cast<u8>(value);
+                    }
+                    if (!isCorrect) {
+                        LOG_ERROR("Checkpoint {} failed: Register '{}' expected value '{:#x}', actual value '{:#x}'", checkpointID, regName, value,
+                                  globalState.cpu.reg64.contains(regName) ? *globalState.cpu.reg64[regName] :
+                                  globalState.cpu.reg32.contains(regName) ? *globalState.cpu.reg32[regName] :
+                                  globalState.cpu.reg16.contains(regName) ? *globalState.cpu.reg16[regName] :
+                                  *globalState.cpu.reg8[regName]);
+                    }
+                }
+                for (auto& [flagName, flagValue] : checkpoint.flags) {
+                    if (globalState.cpu.flags.contains(flagName)) {
+                        if (*globalState.cpu.flags[flagName] != flagValue) {
+                            LOG_ERROR("Checkpoint {} failed: Flag '{}' expected value '{}', actual value '{}'", checkpointID, flagName, flagValue,
+                                      *globalState.cpu.flags[flagName]);
+                        }
+                    }
+                }
+                if (checkpoint.exit) {
+                    LOG_INFO("Checkpoint {} requests program exit. Exiting.", checkpointID);
+                    return 1;
+                }
+            }
+        }
+    }
+    globalState.cpu.rip += 8;
     return 0;
 }
 

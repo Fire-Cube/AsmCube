@@ -278,8 +278,7 @@ std::vector<u8> decodeAscii(const std::string& text) {
     return result;
 }
 
-int run(Ast& ast) {
-    GlobalState globalState{};
+int run(Ast& ast, GlobalState& globalState) {
     std::unordered_map<u64, Instruction> instructionMap{};
     u64 instructionID = 0;
 
@@ -452,6 +451,7 @@ int run(Ast& ast) {
         }
         Instruction instruction = instructionMap[instructionID];
         u32 shouldExit = instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
+        LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {
             return 0;
         }

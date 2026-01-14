@@ -68,7 +68,6 @@ enum class CondCode {
     notBelow,
     aboveOrEqual,
     notCarry,
-    aboveEqual,
     belowOrEqual,
     notAbove,
     above,

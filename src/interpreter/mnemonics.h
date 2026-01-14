@@ -26,6 +26,7 @@ enum class InstructionSet {
     SSE4_1,
     SSE4_2,
     SSE_4A,
+    custom
 };
 
 struct OperandSpec {
@@ -82,7 +83,8 @@ inline std::unordered_map<std::string, InstructionDetails> instructionDefinition
     {"Jcc", {InstructionSet::x86_64, {64}, {}, {"q"}, {},Instructions::Jcc}},
     {"hlt", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::hlt}},
     {"leave", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::leave}},
-    {"syscall", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::syscall}}
+    {"syscall", {InstructionSet::x86_64, {}, {}, {}, {},Instructions::syscall}},
+    {"checkpoint", {InstructionSet::custom, {64}, {}, {}, {}, Instructions::checkpoint}},
 };
 
 inline std::vector<std::string> populatePossiblePrefixes() {

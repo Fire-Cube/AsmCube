@@ -22,5 +22,6 @@ u32 Jcc(GlobalState& globalState, Instruction& instruction);
 u32 hlt(GlobalState& globalState, Instruction& instruction);
 u32 leave(GlobalState& globalState, Instruction& instruction);
 u32 syscall(GlobalState& globalState, Instruction& instruction);
+u32 checkpoint(GlobalState& globalState, Instruction& instruction);
 
 } // namespace Instructions

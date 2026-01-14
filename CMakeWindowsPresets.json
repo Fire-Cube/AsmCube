@@ -19,6 +19,15 @@
           "intelliSenseMode": "windows-clang-x64"
         }
       }
+    },
+    {
+      "name": "x64-MSVC-Base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/Build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl"
+      }
     }
   ]
 }

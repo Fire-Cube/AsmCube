@@ -15,6 +15,8 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "interpreter/interpreter.h"
+#include "interpreter/self_test.h"
+#include "testcases/loader.h"
 
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser argumentParser("AsmCube");
@@ -25,6 +27,11 @@ int main(int argc, char *argv[]) {
 
     argumentParser.add_argument("--dump")
         .help("dumps the output by lexer and parser as json to separate files")
+        .default_value(false)
+        .implicit_value(true);
+
+    argumentParser.add_argument("--testMode")
+        .help("enables test mode")
         .default_value(false)
         .implicit_value(true);
 
@@ -63,13 +70,11 @@ int main(int argc, char *argv[]) {
     std::filesystem::path inputPath = std::filesystem::absolute(argumentParser.get<std::string>("inputFile"));
     if (!std::filesystem::exists(inputPath)) {
         LOG_ERROR("File '{}' does not exist!", inputPath.string());
-        return 1;
     }
 
     std::ifstream in(inputPath, std::ios::binary);
     if (!in) {
         LOG_ERROR("Failed to open file '{}'", inputPath.string());
-        return 1;
     }
 
     std::vector<std::string> inputLines;
@@ -77,6 +82,8 @@ int main(int argc, char *argv[]) {
     while (std::getline(in, line)) {
         inputLines.push_back(line);
     }
+
+    selfTestCPU();
 
     std::vector<Token> tokens;
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -108,8 +115,20 @@ int main(int argc, char *argv[]) {
         LOG_INFO("AST dumped to '{}'.", outputPath.string());
     }
 
+    GlobalState globalState{};
+
+    if (argumentParser["--testMode"] == true) {
+        globalState.testcase.testEnabled = true;
+        std::filesystem::path testConfigPath = inputPath;
+        testConfigPath.replace_extension(".yaml");
+        if (!std::filesystem::exists(testConfigPath)) {
+            LOG_ERROR("Test configuration file '{}' does not exist!", testConfigPath.string());
+        }
+        Testcases::loadTest(globalState, testConfigPath);
+    }
+
     startTime = std::chrono::high_resolution_clock::now();
-    run(ast);
+    run(ast, globalState);
     endTime = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
     LOG_DEBUG("Run completed in {} ms.", duration);
