@@ -22,6 +22,7 @@
       "binaryDir": "${sourceDir}/Build/${presetName}",
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++"
-      },
+      }
+    }
   ]
 }
