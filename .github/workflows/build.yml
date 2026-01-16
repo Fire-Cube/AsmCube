@@ -44,7 +44,7 @@ jobs:
           path: Build\x64-MSVC-Release\AsmCube.exe
 
   release-linux-clang:
-    name: linux
+    name: linux-clang
     runs-on: ubuntu-24.04
     steps:
         - name: Checkout repository
