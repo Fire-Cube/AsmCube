@@ -26,8 +26,8 @@ inline LogLevel logLevel = LogLevel::Info;
 
 #if MSVC
 #define DEBUG_BREAK __debugbreak()
-#elif CLANG
-#define DEBUG_BREAK __builtin_debugtrap()
+#elif CLANG || GCC
+#define DEBUG_BREAK __builtin_trap()
 #endif
 
 consteval std::string_view shortenPath(const char* inputPath) {

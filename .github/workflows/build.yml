@@ -43,7 +43,7 @@ jobs:
           name: AsmCube Windows MSVC
           path: Build\x64-MSVC-Release\AsmCube.exe
 
-  release-linux:
+  release-linux-clang:
     name: linux
     runs-on: ubuntu-24.04
     steps:
@@ -62,5 +62,27 @@ jobs:
         - name: Upload Linux artifact
           uses: actions/upload-artifact@v4
           with:
-            name: AsmCube Linux
+            name: AsmCube Linux Clang
             path: Build/x64-Clang-Release/AsmCube
+
+  release-linux-gcc:
+    name: linux-gcc
+    runs-on: ubuntu-24.04
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v5
+          with:
+            submodules: recursive
+        - name: Install dependencies
+          run: |
+              sudo apt update
+              sudo apt install -y ninja-build gcc cmake
+        - name: Build
+          run: |
+              cmake --preset x64-GCC-Release .
+              cmake --build ./Build/x64-GCC-Release
+        - name: Upload Linux artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: AsmCube Linux GCC
+            path: Build/x64-GCC-Release/AsmCube

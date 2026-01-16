@@ -32,26 +32,11 @@
       }
     },
     {
-      "name": "x64-WSL-Clang-RelWithDebInfo",
-      "displayName": "WSL Clang x64 RelWithDebInfo",
-      "inherits": ["x64-Clang-Base"],
-      "vendor": {
-        "jetbrains.com/clion": {
-          "toolchain": "WSL"
-        }
-      }
-    },
-    {
       "name": "x64-MSVC-Debug",
       "displayName": "MSVC x64 Debug",
       "inherits": ["x64-MSVC-Base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
       }
     },
     {
@@ -60,11 +45,6 @@
       "inherits": ["x64-MSVC-Base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
       }
     },
     {
@@ -73,11 +53,30 @@
       "inherits": ["x64-MSVC-Base"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "x64-GCC-Debug",
+      "displayName": "GCC x64 Debug",
+      "inherits": ["x64-GCC-Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "x64-GCC-Release",
+      "displayName": "GCC x64 Release",
+      "inherits": ["x64-GCC-Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "x64-GCC-RelWithDebInfo",
+      "displayName": "GCC x64 RelWithDebInfo",
+      "inherits": ["x64-GCC-Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     }
   ]

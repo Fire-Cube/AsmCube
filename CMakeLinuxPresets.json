@@ -17,7 +17,21 @@
     },
     {
       "name": "x64-MSVC-Base",
-      "hidden": true
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "x64-GCC-Base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/Build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++"
+      }
     }
   ]
 }

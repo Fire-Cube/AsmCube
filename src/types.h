@@ -17,6 +17,12 @@
     #define MSVC 0
 #endif
 
+#if defined(__GNUC__) && !defined(__clang__)
+    #define GCC 1
+#else
+    #define GCC 0
+#endif
+
 #if MSVC
 #include <__msvc_int128.hpp>
 #endif
@@ -27,7 +33,7 @@ using s32 = int32_t;
 using s64 = int64_t;
 #if MSVC
 using s128 = std::_Signed128;
-#elif CLANG
+#elif defined(CLANG) || defined(GCC)
 using s128 = __int128_t;
 #endif
 
@@ -38,7 +44,7 @@ using u32 = uint32_t;
 using u64 = uint64_t;
 #if MSVC
 using u128 = std::_Unsigned128;
-#elif CLANG
+#elif CLANG || defined(GCC)
 using u128 = __uint128_t;
 #endif
 

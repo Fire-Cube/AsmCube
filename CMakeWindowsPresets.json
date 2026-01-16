@@ -28,6 +28,15 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "cl"
       }
+    },
+    {
+      "name": "x64-GCC-Base",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     }
   ]
 }
