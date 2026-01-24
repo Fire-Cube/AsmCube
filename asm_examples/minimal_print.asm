@@ -17,10 +17,9 @@ _start:
     mov $1, %rdi
     lea msg0(%rip), %rsi
     mov $msglen0, %rdx
-    mov (%rsi), %rsi
     syscall
 
-    xor %rdi, %rdi
+    mov $60, %rax
     syscall
 
     .cfi_endproc
