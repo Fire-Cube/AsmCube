@@ -456,6 +456,4 @@ int run(Ast& ast, GlobalState& globalState) {
             return 0;
         }
     }
-
-    return 0;
 }

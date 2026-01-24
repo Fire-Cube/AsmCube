@@ -75,7 +75,42 @@ u32 sub(GlobalState& globalState, Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     u64 right = readOperand(instruction.operands[1], operandSize, globalState);
-    writeOperand(instruction.operands[1], left - right, globalState);
+
+    u64 width;
+    switch (operandSize[0]) {
+        case 'b': width = 8;  break;
+        case 'w': width = 16; break;
+        case 'l': width = 32; break;
+        case 'q': width = 64; break;
+    }
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+    u64 a = left & mask;
+    u64 b = right & mask;
+
+    u128 diff = static_cast<u128>(b) - static_cast<u128>(a);
+    u64 res = static_cast<u64>(diff) & mask;
+
+    // CF
+    globalState.cpu.cf = (b < a);
+
+    // OF
+    u64 sign = 1ULL << (width - 1);
+    u64 sb = b & sign;
+    u64 sa = a & sign;
+    u64 sr = res & sign;
+    globalState.cpu.of = (sb != sa) && (sr != sb);
+
+    // SF
+    globalState.cpu.sf = (sr != 0);
+
+    // ZF
+    globalState.cpu.zf = (res == 0);
+
+    // PF
+    globalState.cpu.pf = (std::popcount(static_cast<u8>(res)) % 2) == 0;
+
+    writeOperand(instruction.operands[1], res, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -196,7 +231,7 @@ u32 Jcc(GlobalState& globalState, Instruction& instruction) {
 
 u32 hlt(GlobalState& globalState, Instruction& instruction) {
     LOG_INFO("HLT encountered. Halting execution.");
-    std::exit(0);
+    return 1;
 }
 
 u32 leave(GlobalState& globalState, Instruction& instruction) {
