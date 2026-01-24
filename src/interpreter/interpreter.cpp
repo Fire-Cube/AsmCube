@@ -278,8 +278,7 @@ std::vector<u8> decodeAscii(const std::string& text) {
     return result;
 }
 
-int run(Ast& ast) {
-    GlobalState globalState{};
+int run(Ast& ast, GlobalState& globalState) {
     std::unordered_map<u64, Instruction> instructionMap{};
     u64 instructionID = 0;
 
@@ -366,7 +365,7 @@ int run(Ast& ast) {
                                           symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
                                       }
                                       for (u32 i = 0; i < size; ++i) {
-                                          u8 value = static_cast<u8>(std::stoull(directive.arguments[i]));
+                                          u8 value = static_cast<u8>(textToNumber(directive.arguments[i]));
                                           globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
                                       }
                                       globalState.memory.setPermission(symbol.address, size, permission);
@@ -384,7 +383,7 @@ int run(Ast& ast) {
                                           symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
                                       }
                                       for (u32 i = 0; i < directive.arguments.size(); ++i) {
-                                          u64 value = static_cast<u64>(std::stoull(directive.arguments[i]));
+                                          u64 value = textToNumber(directive.arguments[i]);
                                           globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
                                       }
                                       globalState.memory.setPermission(symbol.address, size, permission);
@@ -452,10 +451,9 @@ int run(Ast& ast) {
         }
         Instruction instruction = instructionMap[instructionID];
         u32 shouldExit = instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
+        LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {
             return 0;
         }
     }
-
-    return 0;
 }

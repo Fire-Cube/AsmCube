@@ -18,8 +18,10 @@ u32 pop(GlobalState& globalState, Instruction& instruction);
 u32 call(GlobalState& globalState, Instruction& instruction);
 u32 ret(GlobalState& globalState, Instruction& instruction);
 u32 jmp(GlobalState& globalState, Instruction& instruction);
+u32 Jcc(GlobalState& globalState, Instruction& instruction);
 u32 hlt(GlobalState& globalState, Instruction& instruction);
 u32 leave(GlobalState& globalState, Instruction& instruction);
 u32 syscall(GlobalState& globalState, Instruction& instruction);
+u32 checkpoint(GlobalState& globalState, Instruction& instruction);
 
 } // namespace Instructions

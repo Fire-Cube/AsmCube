@@ -18,6 +18,7 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
     bool buildingImmediate = false;
     bool buildingRegister = false;
     bool buildingSymbolType = false;
+    bool buildingHexNumber = false;
 
     auto endCurrentLexemes = [&](){
         buildingNumber = false;
@@ -27,6 +28,7 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
         buildingImmediate = false;
         buildingRegister = false;
         buildingSymbolType = false;
+        buildingHexNumber = false;
     };
 
     for (const auto& line : inputLines) {
@@ -185,12 +187,28 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                     tokens.push_back(Token{ Token::Type::Equal, "=", lineNumber, column, 1 });
                     continue;
 
+                case '0':
+                    if (line[i + 1] == 'x') {
+                        buildingHexNumber = true;
+                        if (!buildingImmediate) {
+                            tokens.push_back(Token{ Token::Type::HexNumber, "0", lineNumber, column, 1 });
+                            continue;
+                        }
+                    }
+
+                case 'x':
+                    if (buildingHexNumber && tokens.back().length == 1) {
+                        tokens.back().lexeme += c;
+                        tokens.back().length += 1;
+                        continue;
+                    }
+
                 default:
                     break;
             }
 
             if (std::isdigit(uc)) {
-                if (!buildingNumber && !buildingIdentifier && !buildingImmediate && !buildingRegister) {
+                if (!buildingNumber && !buildingIdentifier && !buildingImmediate && !buildingRegister && !buildingHexNumber) {
                     endCurrentLexemes();
                     buildingNumber = true;
                     tokens.push_back(Token{ Token::Type::Number, std::string(1, c), lineNumber, column, 1 });
@@ -201,8 +219,14 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                 continue;
             }
 
+            if (buildingHexNumber && std::isalpha(uc) && (std::tolower(uc) >= 'a' && std::tolower(uc) <= 'f')) {
+                tokens.back().lexeme += c;
+                tokens.back().length += 1;
+                continue;
+            }
+
             if (std::isalpha(uc) || c == '_') {
-                if (!buildingIdentifier && !buildingRegister && !buildingSymbolType) {
+                if (!buildingIdentifier && !buildingRegister && !buildingSymbolType && !buildingHexNumber) {
                     endCurrentLexemes();
                     buildingIdentifier = true;
                     tokens.push_back(Token{ Token::Type::Identifier, std::string(1, c), lineNumber, column, 1 });

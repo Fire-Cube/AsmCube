@@ -24,42 +24,58 @@ enum class LogLevel {
 
 inline LogLevel logLevel = LogLevel::Info;
 
-inline std::string shortenPath(const char* inputPath) {
-    std::string normalizedPath = std::filesystem::path(std::string{ inputPath }).generic_string();
-    u32 srcPos = normalizedPath.rfind("src/") + 4;
-    return normalizedPath.substr(srcPos);
+#if MSVC
+#define DEBUG_BREAK __debugbreak()
+#elif CLANG || GCC
+#define DEBUG_BREAK __builtin_trap()
+#endif
+
+consteval std::string_view shortenPath(const char* inputPath) {
+    u16 length = 0;
+    while (inputPath[length] != '\0') {
+        ++length;
+    }
+    for (u16 i = 3; i < length; i++) {
+        if (inputPath[i - 3] == 's' &&
+            inputPath[i - 2] == 'r' &&
+            inputPath[i - 1] == 'c' &&
+            (inputPath[i] == '/' || inputPath[i] == '\\')) {
+            return std::string_view(&inputPath[i + 1], length - i - 1);
+        }
+    }
+    return std::string_view(inputPath, length);
 }
 
 #define LOG_ERROR(msg, ...) \
 do { \
     if (true) { \
-        const auto sourceLocation = std::source_location::current(); \
-        std::cout << RED(std::format("{}:{} ({}) ERROR: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
+        constexpr auto sourceLocation = std::source_location::current(); \
+        std::cout << RED(std::format("{}:{} ({}) ERROR: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg __VA_OPT__(,) __VA_ARGS__))) << std::flush; \
     } \
-     __builtin_trap(); \
+     DEBUG_BREAK; \
      std::exit(1); \
 } while (0)
 
 #define LOG_WARNING(msg, ...) \
 do { \
     if (logLevel == LogLevel::Warning || logLevel == LogLevel::Info || logLevel == LogLevel::Debug) { \
-        const auto sourceLocation = std::source_location::current(); \
-        std::cout << YELLOW(std::format("{}:{} ({}) WARNING: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
+        constexpr auto sourceLocation = std::source_location::current(); \
+        std::cout << YELLOW(std::format("{}:{} ({}) WARNING: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg __VA_OPT__(,) __VA_ARGS__))) << std::flush; \
     } \
 } while (0)
 
 #define LOG_INFO(msg, ...) \
 do { \
     if (logLevel == LogLevel::Info || logLevel == LogLevel::Debug) { \
-        const auto sourceLocation = std::source_location::current(); \
-        std::cout << std::format("{}:{} ({}) INFO: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__)) << std::flush; \
+        constexpr auto sourceLocation = std::source_location::current(); \
+        std::cout << std::format("{}:{} ({}) INFO: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg __VA_OPT__(,) __VA_ARGS__)) << std::flush; \
     } \
 } while (0)
 
 #define LOG_DEBUG(msg, ...) \
 do { \
     if (logLevel == LogLevel::Debug) { \
-        const auto sourceLocation = std::source_location::current(); \
-        std::cout << BLUE(std::format("{}:{} ({}) DEBUG: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg, ##__VA_ARGS__))) << std::flush; \
+        constexpr auto sourceLocation = std::source_location::current(); \
+        std::cout << BLUE(std::format("{}:{} ({}) DEBUG: {}\n", shortenPath(sourceLocation.file_name()), sourceLocation.line(), __func__, std::format(msg __VA_OPT__(,) __VA_ARGS__))) << std::flush; \
     } \
 } while (0)

@@ -14,6 +14,27 @@
 
 bool isNumber(const std::string& str) {
     return !str.empty() && std::ranges::all_of(str, isdigit);
+
+}
+
+bool isHexNumber(const std::string& str) {
+    return str.size() > 2 && str[0] == '0' && (str[1] == 'x') &&
+           std::ranges::all_of(str.begin() + 2, str.end(), [](char c) {
+               return std::isxdigit(std::tolower(static_cast<unsigned char>(c)));
+           });
+}
+
+s64 textToNumber(const std::string& text) {
+    std::string tmpText;
+    for (char c : text) {
+        tmpText.push_back(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    if (tmpText.find("0x") == 0) {
+        return std::stoull(tmpText.substr(2), nullptr, 16);
+    }
+
+    return std::stoull(tmpText, nullptr, 10);
 }
 
 int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions) {
@@ -78,7 +99,7 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
     if (hasDisplacement) {
         auto dispToken = lineTokens[operandStart];
         if (dispToken.type == Token::Type::Number || dispToken.type == Token::Type::NegativeNumber) {
-            std::get<Memory>(instruction.operands.back()).disp = std::stoll(dispToken.lexeme);
+            std::get<Memory>(instruction.operands.back()).disp = textToNumber(dispToken.lexeme);
         }
         else if (dispToken.type == Token::Type::Identifier) {
             std::get<Memory>(instruction.operands.back()).disp = Label{ dispToken.lexeme };
@@ -143,8 +164,8 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
             }
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
-                if (isNumber(immediateValue)) {
-                    instruction.operands.push_back(Immediate{ .integer = std::stoull(immediateValue) });
+                if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
+                    instruction.operands.push_back(Immediate{ .integer = textToNumber(immediateValue) });
                 }
                 else if (lineTokens[2].type == Token::Type::Identifier) {
                     instruction.operands.push_back(Immediate{ .symbol = lineTokens[2].lexeme});
@@ -167,6 +188,12 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
         }
         else if (lineTokens[1].type == Token::Type::Register) {
             instruction.operands.push_back(Register{ lineTokens[1].lexeme });
+        }
+        else if (lineTokens[1].type == Token::Type::Immediate) {
+            std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
+            if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
+                instruction.operands.push_back(Immediate{ .integer = textToNumber(immediateValue) });
+            }
         }
     }
     ast.back().items.push_back(instruction);
@@ -270,6 +297,20 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                 instruction.mnemonic = mnemonic;
                 parseOperands(instruction, lineTokens, ast);
                 continue;
+            }
+
+            if (lineTokens[0].type == Token::Type::Identifier) {
+                // Jcc
+                if (condCodeMap.contains(lineTokens[0].lexeme)) {
+                    Instruction instruction;
+                    Mnemonic mnemonic;
+                    mnemonic.mnemonicName = "Jcc";
+
+                    instruction.mnemonic = mnemonic;
+                    instruction.additionalData = condCodeMap[lineTokens[0].lexeme];
+                    parseOperands(instruction, lineTokens, ast);
+                    continue;
+                }
             }
 
             // Labels

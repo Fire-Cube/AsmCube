@@ -9,9 +9,16 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE True)
 
+if(MSVC)
+    add_compile_options(/Zc:preprocessor)
+endif()
+
 set(SOURCES
     src/cereal_overrides.h
+    src/global_state.h
+    src/logging.h
     src/magic_enum_overrides.h
+    src/types.h
     src/lexer/lexer.cpp
     src/lexer/lexer.h
     src/parser/parser.cpp
@@ -22,8 +29,14 @@ set(SOURCES
     src/interpreter/interpreter.h
     src/interpreter/memory.h
     src/interpreter/registers.h
+    src/interpreter/self_test.cpp
+    src/interpreter/self_test.h
+    src/interpreter/symbol_table.h
     src/interpreter/syscalls.cpp
     src/interpreter/syscalls.h
+    src/testcases/loader.cpp
+    src/testcases/loader.h
+    src/testcases/testcase.h
     src/main.cpp
 )
 
@@ -33,9 +46,13 @@ SET(EXTERNALS
     src/externals/magic_enum/include
 )
 
+add_subdirectory(src/externals/rapidyaml)
+
 add_executable(AsmCube ${SOURCES})
 
 target_include_directories(AsmCube PRIVATE
     ${EXTERNALS}
     src
 )
+
+target_link_libraries(AsmCube PRIVATE ryml)

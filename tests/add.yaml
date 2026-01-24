@@ -1,0 +1,24 @@
+- id: 1
+  registers: { rax: 3 }
+  flags: { CF: 0, ZF: 0, SF: 0, OF: 0 }
+
+- id: 2
+  registers: { rax: 0 }
+  flags: { CF: 0, ZF: 1, SF: 0, OF: 0 }
+
+- id: 3
+  registers: { rax: 0 }
+  flags: { CF: 1, ZF: 1, SF: 0, OF: 0 }
+
+- id: 4
+  registers: { rax: 0x8000000000000000 }
+  flags: { CF: 0, ZF: 0, SF: 1, OF: 1 }
+
+- id: 5
+  registers: { rax: 0 }
+  flags: { CF: 1, ZF: 1, SF: 0, OF: 1 }
+
+- id: 6
+  registers: { rax: 0xffffffffffffffee }
+  flags: { CF: 1, ZF: 0, SF: 1, OF: 0 }
+  exit: true

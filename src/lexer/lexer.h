@@ -21,6 +21,7 @@ struct Token {
         Dash,
         Number,
         NegativeNumber,
+        HexNumber,
         String,
         EOL,
         Register,

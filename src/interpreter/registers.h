@@ -236,4 +236,19 @@ struct CPU {
             {"r14b", &r14b},
             {"r15b", &r15b},
         };
+
+        // Flags
+        bool cf = false; // Carry Flag
+        bool pf = false; // Parity Flag
+        bool zf = false; // Zero Flag
+        bool sf = false; // Sign Flag
+        bool of = false; // Overflow Flag
+
+        std::unordered_map<std::string, bool*> flags = {
+            {"cf",  &cf},
+            {"pf",  &pf},
+            {"zf",  &zf},
+            {"sf",  &sf},
+            {"of",  &of},
+        };
 };

@@ -65,7 +65,8 @@ enum class CondCode {
     below,
     notAboveOrEqual,
     carry,
-    aboveEqual,
+    notBelow,
+    aboveOrEqual,
     notCarry,
     belowOrEqual,
     notAbove,
@@ -83,6 +84,39 @@ enum class CondCode {
     parityEven,
     notParity,
     parityOdd,
+};
+
+inline std::unordered_map<std::string, CondCode> condCodeMap = {
+    {"jo", CondCode::overflow},
+    {"jno", CondCode::notOverflow},
+    {"js", CondCode::sign},
+    {"jns", CondCode::notSign},
+    {"je", CondCode::equal},
+    {"jz", CondCode::zero},
+    {"jne", CondCode::notEqual},
+    {"jnz", CondCode::notZero},
+    {"jb", CondCode::below},
+    {"jnae", CondCode::notAboveOrEqual},
+    {"jc", CondCode::carry},
+    {"jnb", CondCode::notBelow},
+    {"jae", CondCode::aboveOrEqual},
+    {"jnc", CondCode::notCarry},
+    {"jbe", CondCode::belowOrEqual},
+    {"jna", CondCode::notAbove},
+    {"ja", CondCode::above},
+    {"jnbe", CondCode::notBelowOrEqual},
+    {"jl", CondCode::less},
+    {"jnge", CondCode::notGreaterOrEqual},
+    {"jge", CondCode::greaterOrEqual},
+    {"jnl", CondCode::notLess},
+    {"jle", CondCode::lessOrEqual},
+    {"jng", CondCode::notGreater},
+    {"jg", CondCode::greater},
+    {"jnle", CondCode::notLessOrEqual},
+    {"jp", CondCode::parity},
+    {"jpe", CondCode::parityEven},
+    {"jnp", CondCode::notParity},
+    {"jpo", CondCode::parityOdd},
 };
 
 struct Mnemonic {
@@ -147,6 +181,7 @@ using Operand = std::variant<Register, Immediate, Memory>;
 struct Instruction {
     Mnemonic mnemonic;
     std::vector<Operand> operands;
+    std::optional<std::variant<CondCode>> additionalData;
 
     template <class Archive>
     void serialize(Archive& archive) {
@@ -188,5 +223,6 @@ struct Section {
 
 using Ast = std::vector<Section>;
 
+s64 textToNumber(const std::string& text);
 int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions);
 int parse(const std::vector<Token>& tokens, std::vector<Section>& ast);
