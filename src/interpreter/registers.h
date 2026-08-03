@@ -9,6 +9,8 @@
 
 #include "types.h"
 
+namespace Interpreter
+{
 struct GPR {
     u64 memory; // This memory is shared with all sub-registers
 
@@ -252,3 +254,5 @@ struct CPU {
             {"of",  &of},
         };
 };
+
+} // namespace Interpreter

@@ -3,25 +3,33 @@
 
 #pragma once
 
-#include "interpreter.h"
 #include "parser/parser.h"
+#include "global_state.h"
 
-namespace Instructions {
+namespace Interpreter::Instructions {
 
-u32 lea(GlobalState& globalState, Instruction& instruction);
-u32 Xor(GlobalState& globalState, Instruction& instruction);
-u32 add(GlobalState& globalState, Instruction& instruction);
-u32 sub(GlobalState& globalState, Instruction& instruction);
-u32 mov(GlobalState& globalState, Instruction& instruction);
-u32 push(GlobalState& globalState, Instruction& instruction);
-u32 pop(GlobalState& globalState, Instruction& instruction);
-u32 call(GlobalState& globalState, Instruction& instruction);
-u32 ret(GlobalState& globalState, Instruction& instruction);
-u32 jmp(GlobalState& globalState, Instruction& instruction);
-u32 Jcc(GlobalState& globalState, Instruction& instruction);
-u32 hlt(GlobalState& globalState, Instruction& instruction);
-u32 leave(GlobalState& globalState, Instruction& instruction);
-u32 syscall(GlobalState& globalState, Instruction& instruction);
-u32 checkpoint(GlobalState& globalState, Instruction& instruction);
+u32 lea(GlobalState& globalState, Ast::Instruction& instruction);
+u32 Xor(GlobalState& globalState, Ast::Instruction& instruction);
+u32 And(GlobalState& globalState, Ast::Instruction& instruction);
+u32 add(GlobalState& globalState, Ast::Instruction& instruction);
+u32 sub(GlobalState& globalState, Ast::Instruction& instruction);
+u32 cmp(GlobalState& globalState, Ast::Instruction& instruction);
+u32 inc(GlobalState& globalState, Ast::Instruction& instruction);
+u32 dec(GlobalState& globalState, Ast::Instruction& instruction);
+u32 neg(GlobalState& globalState, Ast::Instruction& instruction);
+u32 test(GlobalState& globalState, Ast::Instruction& instruction);
+u32 stc(GlobalState& globalState, Ast::Instruction& instruction);
+u32 mov(GlobalState& globalState, Ast::Instruction& instruction);
+u32 push(GlobalState& globalState, Ast::Instruction& instruction);
+u32 pop(GlobalState& globalState, Ast::Instruction& instruction);
+u32 call(GlobalState& globalState, Ast::Instruction& instruction);
+u32 ret(GlobalState& globalState, Ast::Instruction& instruction);
+u32 jmp(GlobalState& globalState, Ast::Instruction& instruction);
+u32 Jcc(GlobalState& globalState, Ast::Instruction& instruction);
+u32 CMOVcc(GlobalState& globalState, Ast::Instruction& instruction);
+u32 hlt(GlobalState& globalState, Ast::Instruction& instruction);
+u32 leave(GlobalState& globalState, Ast::Instruction& instruction);
+u32 syscall(GlobalState& globalState, Ast::Instruction& instruction);
+u32 checkpoint(GlobalState& globalState, Ast::Instruction& instruction);
 
-} // namespace Instructions
+} // namespace Interpreter::Instructions

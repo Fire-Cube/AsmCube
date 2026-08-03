@@ -19,10 +19,13 @@ set(SOURCES
     src/logging.h
     src/magic_enum_overrides.h
     src/types.h
+    src/windows_stuff.cpp
+    src/windows_stuff.h
     src/lexer/lexer.cpp
     src/lexer/lexer.h
     src/parser/parser.cpp
     src/parser/parser.h
+    src/interpreter/instructions_helper.h
     src/interpreter/instructions.cpp
     src/interpreter/instructions.h
     src/interpreter/interpreter.cpp

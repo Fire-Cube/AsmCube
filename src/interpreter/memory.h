@@ -39,12 +39,25 @@ class Memory {
             u32 dataSize = sizeof(data);
             for (u32 i = 0; i < dataSize / sizeof(u8); ++i) {
                 u32 offset = (address + i) % PageSize;
-                Page& page = pages[(address + i) / PageSize];
-                if (!page.permissionWrite.test(offset)) {
+                // If address in stack space
+                Page* page = nullptr;
+                if (address >= UINT64_MAX - 8_MiB) {
+                    if (!pages.contains((address + i) / PageSize)) {
+                        page = &pages[(address + i) / PageSize];
+                        setPermission((address + i) - ((address + i ) % PageSize), PageSize, Permission{ true, true, false });
+                    }
+                    else {
+                        page = &pages[(address + i) / PageSize];
+                    }
+                }
+                else {
+                    page = &pages[(address + i) / PageSize];
+                }
+                if (!page->permissionWrite.test(offset)) {
                    LOG_ERROR("Write access violation at address 0x{:016x}", address + i);
                 }
-                page.data[offset] = data >> (8 * i) & 0xFF;
-                page.initialized.set(offset);
+                page->data[offset] = data >> (8 * i) & 0xFF;
+                page->initialized.set(offset);
             }
         }
 
@@ -65,14 +78,27 @@ class Memory {
             u32 dataSize = sizeof(data);
             for (u32 i = 0; i < dataSize / sizeof(u8); ++i) {
                 u32 offset = (address + i) % PageSize;
-                Page& page = pages[(address + i) / PageSize];
-                if (!page.permissionRead.test(offset)) {
+                // If address in stack space
+                Page* page = nullptr;
+                if (address >= UINT64_MAX - 8_MiB) {
+                    if (!pages.contains((address + i) / PageSize)) {
+                        page = &pages[(address + i) / PageSize];
+                        setPermission((address + i) - ((address + i ) % PageSize), PageSize, Permission{ true, true, false });
+                    }
+                    else {
+                        page = &pages[(address + i) / PageSize];
+                    }
+                }
+                else {
+                    page = &pages[(address + i) / PageSize];
+                }
+                if (!page->permissionRead.test(offset)) {
                    LOG_ERROR("Read access violation at address 0x{:016x}", address + i);
                 }
-                if (!page.initialized.test(offset)) {
+                if (!page->initialized.test(offset)) {
                    LOG_DEBUG("Reading uninitialized memory at address 0x{:016x}", address + i);
                 }
-                data |= static_cast<T>(page.data[offset]) << (8 * i);
+                data |= static_cast<T>(page->data[offset]) << (8 * i);
             }
         }
 
@@ -88,7 +114,8 @@ class Memory {
         }
 
         void setPermission(const u64 address, const u64 size, Permission permission) {
-            for (u64 i = address; i < address + size; ++i) {
+            for (u64 n = 0; n < size; ++n) {
+                u64 i = address + n;
                 u32 offset = i % PageSize;
                 Page& page = pages[i / PageSize];
 

@@ -12,9 +12,11 @@
 
 #include "logging.h"
 
+namespace Parser
+{
+
 bool isNumber(const std::string& str) {
     return !str.empty() && std::ranges::all_of(str, isdigit);
-
 }
 
 bool isHexNumber(const std::string& str) {
@@ -37,7 +39,7 @@ s64 textToNumber(const std::string& text) {
     return std::stoull(tmpText, nullptr, 10);
 }
 
-int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions) {
+int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions) {
     u32 openBracketPosition = operandStart;
     bool hasDisplacement = false;
     if (lineTokens[operandStart].type != Token::Type::BracketOpen) {
@@ -48,17 +50,17 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
     switch (operandCommaPositions.size()) {
         case 0:
             // (base)
-            instruction.operands.push_back(Memory{
-                .base = Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) }
+            instruction.operands.push_back(Ast::Memory{
+                .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) }
             });
 
             break;
 
         case 1:
             // (base, index)
-            instruction.operands.push_back(Memory{
-                .base = Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
-                .index = Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) }
+            instruction.operands.push_back(Ast::Memory{
+                .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
+                .index = Ast::Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) }
             });
 
             break;
@@ -66,30 +68,30 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
         case 2:
             {
                 // (base, index, scale)
-                Scale scale;
+                Ast::Scale scale;
                 switch (std::stoull(lineTokens[operandCommaPositions[1] + 1].lexeme)) {
                     case 1:
-                        scale = Scale::One;
+                        scale = Ast::Scale::One;
                         break;
 
                     case 2:
-                        scale = Scale::Two;
+                        scale = Ast::Scale::Two;
                         break;
 
                     case 4:
-                        scale = Scale::Four;
+                        scale = Ast::Scale::Four;
                         break;
 
                     case 8:
-                        scale = Scale::Eight;
+                        scale = Ast::Scale::Eight;
                         break;
 
                     default:
                         LOG_ERROR("Invalid scale '{}' (line {} column {})", lineTokens[operandCommaPositions[1] + 1].lexeme, lineTokens[operandCommaPositions[1] + 1].line, lineTokens[operandCommaPositions[1] + 1].column);
                 }
-                instruction.operands.push_back(Memory{
-                    .base = Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
-                    .index = Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) },
+                instruction.operands.push_back(Ast::Memory{
+                    .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
+                    .index = Ast::Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) },
                     .scale = scale
                 });
                 break;
@@ -99,10 +101,10 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
     if (hasDisplacement) {
         auto dispToken = lineTokens[operandStart];
         if (dispToken.type == Token::Type::Number || dispToken.type == Token::Type::NegativeNumber) {
-            std::get<Memory>(instruction.operands.back()).disp = textToNumber(dispToken.lexeme);
+            std::get<Ast::Memory>(instruction.operands.back()).disp = textToNumber(dispToken.lexeme);
         }
         else if (dispToken.type == Token::Type::Identifier) {
-            std::get<Memory>(instruction.operands.back()).disp = Label{ dispToken.lexeme };
+            std::get<Ast::Memory>(instruction.operands.back()).disp = Ast::Label{ dispToken.lexeme };
         }
         else {
             LOG_ERROR("Not a valid displacement '{}' (line {} column {})", dispToken.lexeme, dispToken.line, dispToken.column);
@@ -111,7 +113,7 @@ int parseOperand(Instruction& instruction, const std::vector<Token>& lineTokens,
     return 0;
 }
 
-int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens, std::vector<Section>& ast) {
+int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineTokens, std::vector<Ast::Section>& ast) {
     std::vector<std::vector<u32>> operandCommaPositions { {} , {} };
     bool inParen = false;
     u32 parameterCommaPos = 0;
@@ -160,15 +162,15 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
         }
         else {
             if (lineTokens[1].type == Token::Type::Register) {
-                instruction.operands.push_back(Register{ lineTokens[1].lexeme });
+                instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme });
             }
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
                 if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
-                    instruction.operands.push_back(Immediate{ .integer = textToNumber(immediateValue) });
+                    instruction.operands.push_back(Ast::Immediate{static_cast<u64>(textToNumber(immediateValue)) });
                 }
                 else if (lineTokens[2].type == Token::Type::Identifier) {
-                    instruction.operands.push_back(Immediate{ .symbol = lineTokens[2].lexeme});
+                    instruction.operands.push_back(Ast::Symbol{lineTokens[2].lexeme});
                 }
             }
         }
@@ -177,22 +179,28 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
         }
         else {
             if (lineTokens[parameterCommaPos + 1].type == Token::Type::Register) {
-                instruction.operands.push_back(Register{ lineTokens[parameterCommaPos + 1].lexeme });
+                instruction.operands.push_back(Ast::Register{ lineTokens[parameterCommaPos + 1].lexeme });
+            }
+            else if (lineTokens[parameterCommaPos + 1].type == Token::Type::Immediate) {
+                std::string immediateValue = lineTokens[parameterCommaPos + 1].lexeme.substr(1); // Remove '$'
+                if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
+                    instruction.operands.push_back(Ast::Immediate{static_cast<u64>(textToNumber(immediateValue)) });
+                }
             }
         }
 
     }
     else {
         if (lineTokens[1].type == Token::Type::Identifier) {
-            instruction.operands.push_back(Immediate{ .symbol = lineTokens[1].lexeme});
+            instruction.operands.push_back(Ast::Symbol{lineTokens[1].lexeme});
         }
         else if (lineTokens[1].type == Token::Type::Register) {
-            instruction.operands.push_back(Register{ lineTokens[1].lexeme });
+            instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme });
         }
         else if (lineTokens[1].type == Token::Type::Immediate) {
             std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
             if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
-                instruction.operands.push_back(Immediate{ .integer = textToNumber(immediateValue) });
+                instruction.operands.push_back(Ast::Immediate{static_cast<u64>(textToNumber(immediateValue)) });
             }
         }
     }
@@ -200,7 +208,68 @@ int parseOperands(Instruction& instruction, const std::vector<Token>& lineTokens
     return 0;
 }
 
-int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
+bool specOperand1Matches(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const Ast::Operand& operand) {
+    bool matches = false;
+    for (const auto& operandSpec : instructionDef.operandSpecs) {
+        if (std::holds_alternative<Ast::Register>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Register) {
+            matches = true;
+            break;
+        }
+        if (std::holds_alternative<Ast::Immediate>(operand) || std::holds_alternative<Ast::Symbol>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Immediate) {
+            matches = true;
+            break;
+        }
+        if (std::holds_alternative<Ast::Memory>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Memory) {
+            matches = true;
+            break;
+        }
+    }
+    return matches;
+}
+
+bool specOperand2Matches(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const Ast::Operand& operand) {
+    bool matches = false;
+    for (const auto& operandSpec : instructionDef.operandSpecs) {
+        if (std::holds_alternative<Ast::Register>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Register) {
+            matches = true;
+            break;
+        }
+        if (std::holds_alternative<Ast::Immediate>(operand) || std::holds_alternative<Ast::Symbol>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Immediate) {
+            matches = true;
+            break;
+        }
+        if (std::holds_alternative<Ast::Memory>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Memory) {
+            matches = true;
+            break;
+        }
+    }
+    return matches;
+}
+
+bool checkOperands(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const std::vector<Ast::Operand>& operands) {
+    if (instructionDef.allowedSizes.empty() && !operands.empty()) {
+        return false;
+    }
+    if (instructionDef.operandSpecs.empty() && !operands.empty() || !instructionDef.operandSpecs.empty() && operands.empty()) {
+        return false;
+    }
+    if (instructionDef.operandSpecs.empty() && operands.empty()) {
+        return true;
+    }
+
+    if (specOperand1Matches(instructionDef, operands[0])) {
+        if (instructionDef.operandSpecs[0].operand2.has_value()) {
+            if (operands.size() < 2) {
+                return false;
+            }
+            return specOperand2Matches(instructionDef, operands[1]);
+        }
+        return true;
+    }
+    return false;
+}
+
+int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
     std::vector<std::vector<Token>> inputLines { std::vector<Token>{} };
     u32 lineNumber = 0;
     for (Token token : tokens) {
@@ -221,16 +290,16 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
             if (lineTokens[1].type == Token::Type::Identifier) {
                 if (lineTokens[1].lexeme == "section") {
                     if (lineTokens[2].type == Token::Type::Identifier) {
-                        Section section = {lineTokens[2].lexeme.substr(1), {} };
+                        Ast::Section section = {lineTokens[2].lexeme.substr(1), {} };
                         ast.push_back(section);
                     }
                 }
                 else if (lineTokens[1].lexeme == "text" || lineTokens[1].lexeme == "data" || lineTokens[1].lexeme == "bss" || lineTokens[1].lexeme == "rodata") {
-                    Section section = {lineTokens [1].lexeme, {} };
+                    Ast::Section section = {lineTokens [1].lexeme, {} };
                     ast.push_back(section);
                 }
-                else if (auto value = magic_enum::enum_cast<Directive::Name>(lineTokens[1].lexeme)) {
-                    Directive directive;
+                else if (auto value = magic_enum::enum_cast<Ast::Directive::Name>(lineTokens[1].lexeme)) {
+                    Ast::Directive directive;
                     directive.name = *value;
                     for (u32 i = 2; i < lineTokens.size() - 1; ++i) { // Exclude EOL
                         if (lineTokens[i].type == Token::Type::Comma) {
@@ -240,7 +309,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                     }
                     if (ast.empty()) {
                         LOG_INFO("Implicit .text section created");
-                        ast.push_back(Section{ "text", {} });
+                        ast.push_back(Ast::Section{ "text", {} });
                     }
                     ast.back().items.push_back(directive);
                 }
@@ -248,7 +317,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                     LOG_WARNING("Ignoring directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);
                 }
                 else if (lineTokens.size() == 4 && lineTokens[1].type == Token::Type::Identifier && lineTokens[2].type == Token::Type::Colon) {
-                    ast.back().items.push_back(Label{ "." + lineTokens[1].lexeme });
+                    ast.back().items.push_back(Ast::Label{ "." + lineTokens[1].lexeme });
                 }
                 else {
                     LOG_WARNING("Unknown directive '{}' at line {} column {}", lineTokens[1].lexeme, lineTokens[1].line, lineTokens[1].column);
@@ -262,26 +331,26 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
             std::string suffix {};
             u8 mnemonicPos = 0;
 
-            auto possiblePrefixes = populatePossiblePrefixes();
+            auto possiblePrefixes = Interpreter::Mnemonics::populatePossiblePrefixes();
             if (std::ranges::find(possiblePrefixes, lineTokens[0].lexeme) != possiblePrefixes.end()) {
                 prefix = lineTokens[0].lexeme;
                 mnemonicPos = 1;
             }
-            if (instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme)) {
+            if (Interpreter::Mnemonics::instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme)) {
                 mnemonicName = lineTokens[mnemonicPos].lexeme;
             }
-            else if (instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1))) {
+            else if (Interpreter::Mnemonics::instructionDefinitions.contains(lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1))) {
                 mnemonicName = lineTokens[mnemonicPos].lexeme.substr(0, lineTokens[mnemonicPos].lexeme.size() - 1);
                 suffix = lineTokens[0].lexeme.substr(lineTokens[0].lexeme.size() - 1);
             }
 
             if (!mnemonicName.empty()) {
                 // Instruction found
-                Instruction instruction;
-                Mnemonic mnemonic;
+                Ast::Instruction instruction;
+                Ast::Mnemonic mnemonic;
                 mnemonic.mnemonicName = mnemonicName;
 
-                auto& instructionDef = instructionDefinitions[mnemonicName];
+                auto& instructionDef = Interpreter::Mnemonics::instructionDefinitions[mnemonicName];
                 if (!prefix.empty()) {
                     if (std::ranges::find(instructionDef.allowedPrefixes, prefix) == instructionDef.allowedPrefixes.end()) {
                         LOG_ERROR("Invalid prefix '{}' for mnemonic '{}' at line {} column {}", prefix, mnemonicName, lineTokens[0].line, lineTokens[0].column);
@@ -296,18 +365,45 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
                 }
                 instruction.mnemonic = mnemonic;
                 parseOperands(instruction, lineTokens, ast);
+                if (!checkOperands(instructionDef, instruction.operands)) {
+                    LOG_ERROR("Invalid operands for mnemonic '{}' at line {} column {}", mnemonicName, lineTokens[0].line, lineTokens[0].column);
+                }
                 continue;
             }
 
             if (lineTokens[0].type == Token::Type::Identifier) {
-                // Jcc
-                if (condCodeMap.contains(lineTokens[0].lexeme)) {
-                    Instruction instruction;
-                    Mnemonic mnemonic;
-                    mnemonic.mnemonicName = "Jcc";
+                std::optional<Ast::CondCode> condCode;
+                std::string mnemonicName;
+
+                std::string tmp = lineTokens[0].lexeme.substr(1);
+                if (condCodeMap.contains(tmp)) {
+                    condCode = condCodeMap[tmp];
+                    mnemonicName = "Jcc";
+                }
+                if (lineTokens[0].lexeme.size() >= 5 && lineTokens[0].lexeme.starts_with("cmov")) {
+                    tmp = lineTokens[0].lexeme.substr(4);
+                    if (condCodeMap.contains(tmp)) {
+                        condCode = condCodeMap[tmp];
+                        mnemonicName = "CMOVcc";
+                    }
+                    if (lineTokens[0].lexeme.size() == 7) {
+                        suffix = lineTokens[0].lexeme.substr(6);
+                        auto& instructionDef = Interpreter::Mnemonics::instructionDefinitions[mnemonicName];
+                        if (std::ranges::find(instructionDef.allowedSuffixes, suffix) == instructionDef.allowedSuffixes.end()) {
+                            LOG_ERROR("Invalid suffix '{}' for mnemonic '{}' at line {} column {}", suffix, mnemonicName, lineTokens[0].line, lineTokens[0].column);
+                        }
+                    }
+                }
+                if (condCode.has_value()) {
+                    Ast::Instruction instruction;
+                    Ast::Mnemonic mnemonic;
+                    mnemonic.mnemonicName = mnemonicName;
+                    if (!suffix.empty()) {
+                        mnemonic.suffix = suffix;
+                    }
 
                     instruction.mnemonic = mnemonic;
-                    instruction.additionalData = condCodeMap[lineTokens[0].lexeme];
+                    instruction.additionalData = condCode;
                     parseOperands(instruction, lineTokens, ast);
                     continue;
                 }
@@ -317,15 +413,15 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
             if (lineTokens[0].type == Token::Type::Identifier && lineTokens[1].type == Token::Type::Colon && lineTokens[2].type == Token::Type::EOL) {
                 if (ast.empty()) {
                     LOG_INFO("Implicit .text section created");
-                    ast.push_back(Section{ "text", {} });
+                    ast.push_back(Ast::Section{ "text", {} });
                 }
-                ast.back().items.push_back(Label{ lineTokens[0].lexeme });
+                ast.back().items.push_back(Ast::Label{ lineTokens[0].lexeme });
             }
             // Symbol assignments
             else if (lineTokens[0].type == Token::Type::Identifier && lineTokens[1].type == Token::Type::Equal) {
-                ast.back().items.push_back(SymbolAssignment{
+                ast.back().items.push_back(Ast::SymbolAssignment{
                     .name = lineTokens[0].lexeme,
-                    .expression = Expression{ std::vector<Token>{ lineTokens.begin() + 2, lineTokens.end() - 1 } } // Exclude EOL
+                    .expression = Ast::Expression{ std::vector<Token>{ lineTokens.begin() + 2, lineTokens.end() - 1 } } // Exclude EOL
                     });
             }
             else {
@@ -337,3 +433,5 @@ int parse(const std::vector<Token>& tokens, std::vector<Section>& ast) {
     return 0;
 
 }
+
+} // namespace Parser

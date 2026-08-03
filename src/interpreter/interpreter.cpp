@@ -10,7 +10,10 @@
 #include "syscalls.h"
 #include "mnemonics.h"
 
-u64 resolveMemory(const Memory& memory, GlobalState& globalState) {
+namespace Interpreter
+{
+
+u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState) {
     u64 displacement = 0;
     u64 base = 0;
     u64 index = 0;
@@ -20,8 +23,8 @@ u64 resolveMemory(const Memory& memory, GlobalState& globalState) {
         if (std::holds_alternative<s64>(*memory.disp)) {
             displacement = std::get<s64>(*memory.disp);
         }
-        else if (std::holds_alternative<Label>(*memory.disp)) {
-            displacement = globalState.symbolTable.findSymbol(std::get<Label>(*memory.disp).name).address;
+        else if (std::holds_alternative<Ast::Label>(*memory.disp)) {
+            displacement = globalState.symbolTable.findSymbol(std::get<Ast::Label>(*memory.disp).name).address;
             if (memory.base.has_value() && memory.base.value().name == "rip") {
                 displacement -= globalState.cpu.rip + 8;
             }
@@ -43,19 +46,19 @@ u64 resolveMemory(const Memory& memory, GlobalState& globalState) {
 
     if (memory.scale.has_value()) {
         switch (memory.scale.value()) {
-            case Scale::One:
+            case Ast::Scale::One:
                 scale = 1;
                 break;
 
-            case Scale::Two:
+            case Ast::Scale::Two:
                 scale = 2;
                 break;
 
-            case Scale::Four:
+            case Ast::Scale::Four:
                 scale = 4;
                 break;
 
-            case Scale::Eight:
+            case Ast::Scale::Eight:
                 scale = 8;
                 break;
         }
@@ -81,15 +84,33 @@ std::string getRegisterSize(const CPU& cpu, const std::string& registerName) {
     LOG_ERROR("Unknown register '{}'", registerName);
 }
 
-std::string getOperandSize(const Operand& left, const Operand& right, const CPU& cpu, const std::string& sizeSuffix) {
-    if (std::holds_alternative<Immediate>(right)) {
+std::string getOperandSize(const Ast::Operand& left, const CPU& cpu, const std::string& sizeSuffix) {
+    if (std::holds_alternative<Ast::Register>(left)) {
+        auto& reg = std::get<Ast::Register>(left);
+        auto regSize = getRegisterSize(cpu, reg.name.substr(1));
+        if (!sizeSuffix.empty() && sizeSuffix != regSize) {
+            LOG_ERROR("Size suffix does not match register size");
+        }
+        return regSize;
+    }
+    if (std::holds_alternative<Ast::Memory>(left)) {
+        if (!sizeSuffix.empty()) {
+            return sizeSuffix;
+        }
+        LOG_ERROR("Size suffix is required when operand is memory");
+    }
+    LOG_ERROR("Cannot determine operand size");
+}
+
+std::string getOperandSize(const Ast::Operand& left, const Ast::Operand& right, const CPU& cpu, const std::string& sizeSuffix) {
+    if (std::holds_alternative<Ast::Immediate>(right)) {
         LOG_ERROR("Destination cannot be an immediate");
     }
-    if (std::holds_alternative<Register>(right)) {
-        auto& dstReg = std::get<Register>(right);
+    if (std::holds_alternative<Ast::Register>(right)) {
+        auto& dstReg = std::get<Ast::Register>(right);
         auto dstSize = getRegisterSize(cpu, dstReg.name.substr(1));
-        if (std::holds_alternative<Register>(left)) {
-            auto& srcReg = std::get<Register>(left);
+        if (std::holds_alternative<Ast::Register>(left)) {
+            auto& srcReg = std::get<Ast::Register>(left);
             auto srcSize = getRegisterSize(cpu, srcReg.name.substr(1));
             if (dstSize != srcSize) {
                 LOG_ERROR("Destination register size is different than source register size");
@@ -100,15 +121,15 @@ std::string getOperandSize(const Operand& left, const Operand& right, const CPU&
         }
         return dstSize;
     }
-    if (std::holds_alternative<Memory>(right)) {
-        if (std::holds_alternative<Register>(left)) {
-            auto& reg = std::get<Register>(left);
+    if (std::holds_alternative<Ast::Memory>(right)) {
+        if (std::holds_alternative<Ast::Register>(left)) {
+            auto& reg = std::get<Ast::Register>(left);
             return getRegisterSize(cpu, reg.name.substr(1));
         }
-        if (std::holds_alternative<Memory>(left)) {
+        if (std::holds_alternative<Ast::Memory>(left)) {
             LOG_ERROR("Memory can not be in both src and dst operands");
         }
-        if (std::holds_alternative<Immediate>(left)) {
+        if (std::holds_alternative<Ast::Immediate>(left)) {
             if (!sizeSuffix.empty()) {
                 return sizeSuffix;
             }
@@ -120,12 +141,11 @@ std::string getOperandSize(const Operand& left, const Operand& right, const CPU&
 
 }
 
-u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& globalState) {
-    switch (operand.index()) {
-        case 0:
+u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalState& globalState) {
+    switch (static_cast<Ast::OperandType>(operand.index())) {
+        case Ast::OperandType::Register:
             {
-                // Register
-                auto& reg = std::get<Register>(operand);
+                auto& reg = std::get<Ast::Register>(operand);
                 std::string regName = reg.name.substr(1);
                 if (globalState.cpu.reg64.contains(regName)) {
                     return *globalState.cpu.reg64[regName];
@@ -142,39 +162,39 @@ u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& gl
                 LOG_ERROR("Unknown register '{}'", regName);
             }
 
-        case 1:
+        case Ast::OperandType::Immediate:
+            return std::get<Ast::Immediate>(operand).value;
+
+        case Ast::OperandType::RelativeImmediate:
+            // Not generated in parser yet
+            return globalState.cpu.rip + 8 + std::get<Ast::RelativeImmediate>(operand).offset;
+
+        case Ast::OperandType::Symbol:
             {
-                // Immediate
-                auto& immediate = std::get<Immediate>(operand);
-                if (immediate.integer.has_value()) {
-                    return immediate.integer.value();
-                }
-                if (immediate.symbol.has_value()) {
+                const std::string& name = std::get<Ast::Symbol>(operand).name;
                     for (const auto& symbolImmediate : globalState.symbolImmediates) {
-                        if (symbolImmediate.name == immediate.symbol.value()) {
+                        if (symbolImmediate.name == name) {
                             return symbolImmediate.value;
                         }
                     }
                     for (const auto& [symbolName, symbol] : globalState.symbolTable.symbols) {
-                        if (symbolName == immediate.symbol.value()) {
+                        if (symbolName == name) {
                             return symbol.address;
                         }
-                        if (auto pos = immediate.symbol.value().find('@'); pos != std::string::npos) {
-                            std::string baseSymbolName = immediate.symbol.value().substr(0, pos);
+                        if (auto pos = name.find('@'); pos != std::string::npos) {
+                            std::string baseSymbolName = name.substr(0, pos);
                             if (symbolName == baseSymbolName) {
                                 return symbol.address;
                             }
                         }
                     }
-                    LOG_ERROR("Unknown symbol {}", immediate.symbol.value());
+                    LOG_ERROR("Unknown symbol {}", name);
                 }
                 break;
-            }
 
-        case 2:
+        case Ast::OperandType::Memory:
             {
-                // Memory
-                auto& memoryOperand = std::get<Memory>(operand);
+                auto& memoryOperand = std::get<Ast::Memory>(operand);
                 u64 address = resolveMemory(memoryOperand, globalState);
                 u64 value = 0;
                 switch (targetSize.c_str()[0]) {
@@ -197,14 +217,15 @@ u64 readOperand(const Operand& operand, std::string& targetSize, GlobalState& gl
                 return value;
             }
     }
+    LOG_ERROR("Unhandled operand type in readOperand");
 }
 
-void writeOperand(const Operand& operand, const u64 value, GlobalState& globalState) {
-    switch (operand.index()) {
-        case 0:
+void writeOperand(const Ast::Operand& operand, const u64 value, GlobalState& globalState) {
+    switch (static_cast<Ast::OperandType>(operand.index())) {
+        case Ast::OperandType::Register:
             {
                 // Register
-                auto& reg = std::get<Register>(operand);
+                auto& reg = std::get<Ast::Register>(operand);
                 std::string regName = reg.name.substr(1);
                 if (globalState.cpu.reg64.contains(regName)) {
                     *globalState.cpu.reg64[regName] = value;
@@ -225,10 +246,10 @@ void writeOperand(const Operand& operand, const u64 value, GlobalState& globalSt
                 LOG_ERROR("Unknown register '{}'", regName);
             }
 
-        case 2:
+        case Ast::OperandType::Memory:
             {
                 // Memory
-                auto& memoryOperand = std::get<Memory>(operand);
+                auto& memoryOperand = std::get<Ast::Memory>(operand);
                 u64 address = resolveMemory(memoryOperand, globalState);
                 switch (getRegisterSize(globalState.cpu,memoryOperand.base.value().name).c_str()[0]) {
                     case 'b':
@@ -249,6 +270,8 @@ void writeOperand(const Operand& operand, const u64 value, GlobalState& globalSt
                 }
                 break;
             }
+        default:
+            LOG_ERROR("Cannot write to this operand type");
     }
 }
 
@@ -278,155 +301,179 @@ std::vector<u8> decodeAscii(const std::string& text) {
     return result;
 }
 
-int run(Ast& ast, GlobalState& globalState) {
-    std::unordered_map<u64, Instruction> instructionMap{};
+int run(Ast::Ast& ast, GlobalState& globalState) {
+    std::unordered_map<u64, Ast::Instruction> instructionMap{};
     u64 instructionID = 0;
 
     // Linking
     LOG_DEBUG("Start linking...");
+    auto startTime = std::chrono::high_resolution_clock::now();
 
-    Interpreter::Permission permission{};
-    for (Section& section : ast) {
+    Permission permission{};
+    for (Ast::Section& section : ast) {
         if (section.name[0] == '.') {
             section.name = section.name.substr(1);
         }
         if (section.name == "rodata" || section.name.rfind("rodata.") == 0) {
-            permission = Interpreter::Permission{ true, false, false };
+            permission = Permission{ true, false, false };
         }
         else if (section.name == "data" || section.name.rfind("data.") == 0) {
-            permission = Interpreter::Permission{ true, true, false };
+            permission = Permission{ true, true, false };
         }
         else if (section.name == "bss" || section.name.rfind("bss.") == 0) {
-            permission = Interpreter::Permission{ true, true, false };
+            permission = Permission{ true, true, false };
         }
         else if (section.name == "text" || section.name.rfind("text.") == 0) {
-            permission = Interpreter::Permission{ true, false, true };
+            permission = Permission{ true, false, true };
         }
         else {
             LOG_INFO("Unknown section name '{}'", section.name);
         }
         std::string actualSymbolName;
         for (const auto& item : section.items) {
-              switch (item.index()) {
-                  case 0:
-                      {
-                          // Label
-                          actualSymbolName = std::get<Label>(item).name;
-                          break;
-                      }
+            switch (item.index()) {
+                case 0:
+                    {
+                        // Label
+                        actualSymbolName = std::get<Ast::Label>(item).name;
+                        break;
+                    }
 
-                  case 1:
-                      {
-                          // Directive
-                          const Directive& directive = std::get<Directive>(item);
-                          switch (directive.name) {
-                              case Directive::Name::ascii:
-                                  {
-                                      auto buffer = decodeAscii(directive.arguments[0]);
-                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
-                                      for (u64 i = 0; i < buffer.size(); ++i) {
-                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
-                                      }
-                                      globalState.memory.setPermission(symbol.address, buffer.size(), permission);
-                                  }
-                                  break;
+                case 1:
+                    {
+                        // Directive
+                        const Ast::Directive& directive = std::get<Ast::Directive>(item);
+                        switch (directive.name) {
+                            case Ast::Directive::Name::ascii:
+                                {
+                                    auto buffer = decodeAscii(directive.arguments[0]);
+                                    Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
+                                    for (u64 i = 0; i < buffer.size(); ++i) {
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, buffer.size(), permission);
+                                }
+                                break;
 
-                              case Directive::Name::asciz:
-                                  {
-                                      auto buffer = decodeAscii(directive.arguments[0]);
-                                      buffer.push_back('\0');
-                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
-                                      for (u64 i = 0; i < buffer.size(); ++i) {
-                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
-                                      }
-                                      globalState.memory.setPermission(symbol.address, buffer.size(), permission);
-                                  }
-                                  break;
+                            case Ast::Directive::Name::asciz:
+                                {
+                                    auto buffer = decodeAscii(directive.arguments[0]);
+                                    buffer.push_back('\0');
+                                    Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName,buffer.size());
+                                    for (u64 i = 0; i < buffer.size(); ++i) {
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, buffer[i]);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, buffer.size(), permission);
+                                }
+                                break;
 
-                              case Directive::Name::skip:
-                                  {
-                                      u32 size = std::stoull(directive.arguments[0]);
-                                      Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                      for (u64 i = 0; i < size; ++i) {
-                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, 0u);
-                                      }
-                                      globalState.memory.setPermission(symbol.address, size, Interpreter::Permission{ true, true, false });
-                                  }
-                                  break;
+                            case Ast::Directive::Name::skip:
+                            case Ast::Directive::Name::space:
+                                {
+                                    u32 size = std::stoull(directive.arguments[0]);
+                                    u64 data = 0u;
+                                    if (directive.arguments.size() > 1) {
+                                        data = Parser::textToNumber(directive.arguments[1]);
+                                    }
+                                    Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                    for (u64 i = 0; i < size; ++i) {
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, data);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, size, Permission{ true, true, false });
+                                }
+                                break;
 
-                              case Directive::Name::byte:
-                                  {
-                                      u32 size = directive.arguments.size();
-                                      Symbol symbol;
-                                      if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
-                                          symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
-                                      }
-                                      else {
-                                          symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                      }
-                                      for (u32 i = 0; i < size; ++i) {
-                                          u8 value = static_cast<u8>(textToNumber(directive.arguments[i]));
-                                          globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
-                                      }
-                                      globalState.memory.setPermission(symbol.address, size, permission);
-                                  }
-                                  break;
+                            case Ast::Directive::Name::zero:
+                                {
+                                    u32 size = std::stoull(directive.arguments[0]);
+                                    Symbol& symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                    for (u64 i = 0; i < size; ++i) {
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, 0u);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, size, Permission{ true, true, false });
+                                }
+                                break;
 
-                              case Directive::Name::quad:
-                                  {
-                                      u32 size = directive.arguments.size() * 8;
-                                      Symbol symbol;
-                                      if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
-                                          symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
-                                      }
-                                      else {
-                                          symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
-                                      }
-                                      for (u32 i = 0; i < directive.arguments.size(); ++i) {
-                                          u64 value = textToNumber(directive.arguments[i]);
-                                          globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
-                                      }
-                                      globalState.memory.setPermission(symbol.address, size, permission);
-                                  }
-                                  break;
+                            case Ast::Directive::Name::byte:
+                                {
+                                    u32 size = directive.arguments.size();
+                                    Symbol symbol;
+                                    if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                        symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                    }
+                                    else {
+                                        symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                    }
+                                    for (u32 i = 0; i < size; ++i) {
+                                        u8 value = static_cast<u8>(Parser::textToNumber(directive.arguments[i]));
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i, value);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, size, permission);
+                                }
+                                break;
 
-                              default:
-                                  break;
-                          }
-                          break;
-                      }
+                            case Ast::Directive::Name::quad:
+                                {
+                                    u32 size = directive.arguments.size() * 8;
+                                    Symbol symbol;
+                                    if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                                        symbol = globalState.symbolTable.extendSymbol(actualSymbolName, size);
+                                    }
+                                    else {
+                                        symbol = globalState.symbolTable.addSymbol(actualSymbolName, size);
+                                    }
+                                    for (u32 i = 0; i < directive.arguments.size(); ++i) {
+                                        auto& text = directive.arguments[i];
+                                        u64 value;
+                                        if (Parser::isNumber(text) || Parser::isHexNumber(text)) {
+                                            value = Parser::textToNumber(directive.arguments[i]);
+                                        }
+                                        else {
+                                            value = globalState.symbolTable.findSymbol(text).address; // ToDO fix with meoemrey nnode
+                                        }
+                                        globalState.memory.writeMemoryNoExcept(symbol.address + i * 8, value);
+                                    }
+                                    globalState.memory.setPermission(symbol.address, size, permission);
+                                }
+                                break;
 
-                  case 2:
-                      {
-                          if (section.name != "text") {
-                              LOG_ERROR("Instructions can only be in the .text section");
-                          }
+                            default:
+                                break;
+                        }
+                        break;
+                    }
 
-                          Instruction instruction = std::get<Instruction>(item);
-                          instructionMap[instructionID] = instruction;
-                          Symbol symbol;
-                          if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
-                              symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
-                          }
-                          else {
-                              symbol = globalState.symbolTable.addSymbol(actualSymbolName, 8);
-                          }
-                          globalState.memory.writeMemoryNoExcept(symbol.address, instructionID);
-                          globalState.memory.setPermission(symbol.address, 8, permission);
-                          ++instructionID;
-                          break;
-                      }
-                  case 3:
-                      {
-                          // SymbolAssignment
-                          const SymbolAssignment& symbolAssignment = std::get<SymbolAssignment>(item);
-                          const std::vector<Token>& tokens = symbolAssignment.expression.tokens;
-                          if (tokens[0].type == Token::Type::Dot && tokens[1].type == Token::Type::Dash) {
-                              globalState.symbolImmediates.push_back(SymbolImmediate{ symbolAssignment.name, globalState.symbolTable.symbols[tokens[2].lexeme].size });
-                          }
-                          break;
-                      }
-              }
+                case 2:
+                    {
+                        if (section.name != "text") {
+                            LOG_ERROR("Instructions can only be in the .text section");
+                        }
+
+                        Ast::Instruction instruction = std::get<Ast::Instruction>(item);
+                        instructionMap[instructionID] = instruction;
+                        Symbol symbol;
+                        if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
+                            symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
+                        }
+                        else {
+                            symbol = globalState.symbolTable.addSymbol(actualSymbolName, 8);
+                        }
+                        globalState.memory.writeMemoryNoExcept(symbol.address, instructionID);
+                        globalState.memory.setPermission(symbol.address, 8, permission);
+                        ++instructionID;
+                        break;
+                    }
+                case 3:
+                    {
+                        // SymbolAssignment
+                        const Ast::SymbolAssignment& symbolAssignment = std::get<Ast::SymbolAssignment>(item);
+                        const std::vector<Token>& tokens = symbolAssignment.expression.tokens;
+                        if (tokens[0].type == Token::Type::Dot && tokens[1].type == Token::Type::Dash) {
+                            globalState.symbolImmediates.push_back(SymbolImmediate{ symbolAssignment.name, globalState.symbolTable.symbols[tokens[2].lexeme].size });
+                        }
+                        break;
+                    }
+            }
         }
     }
 
@@ -440,20 +487,30 @@ int run(Ast& ast, GlobalState& globalState) {
     // init RSP
     globalState.cpu.rsp = UINT64_MAX;
 
-    // init Stack
-    globalState.memory.setPermission(UINT64_MAX - 8_MiB, 8_MiB, { true, true, false });
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
+    LOG_DEBUG("Linking completed in {} ms.", duration);
 
+    startTime = std::chrono::high_resolution_clock::now();
+
+    u64 counter = 0;
     while (true) {
         instructionID = 0;
         globalState.memory.readMemory(instructionPointer, instructionID);
         if (globalState.memory.getBytePermission(instructionPointer).execute == false) {
             LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
         }
-        Instruction instruction = instructionMap[instructionID];
-        u32 shouldExit = instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
+        counter++;
+        Ast::Instruction instruction = instructionMap[instructionID];
+        u32 shouldExit = Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
         LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {
+            endTime = std::chrono::high_resolution_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
+            LOG_INFO("Run completed in {} ms. ({} Instructions)", duration, counter);
             return 0;
         }
     }
 }
+
+} // namespace Interpreter

@@ -11,7 +11,7 @@
 #include "testcases/testcase.h"
 
 struct GlobalState {
-    CPU cpu{};
+    Interpreter::CPU cpu{};
     Interpreter::Memory memory{};
     SymbolTable symbolTable{};
     std::vector<SymbolImmediate> symbolImmediates{};

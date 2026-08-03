@@ -33,7 +33,7 @@ using s32 = int32_t;
 using s64 = int64_t;
 #if MSVC
 using s128 = std::_Signed128;
-#elif defined(CLANG) || defined(GCC)
+#elif CLANG || GCC
 using s128 = __int128_t;
 #endif
 
@@ -44,7 +44,7 @@ using u32 = uint32_t;
 using u64 = uint64_t;
 #if MSVC
 using u128 = std::_Unsigned128;
-#elif CLANG || defined(GCC)
+#elif CLANG || GCC
 using u128 = __uint128_t;
 #endif
 

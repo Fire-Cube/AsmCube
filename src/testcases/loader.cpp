@@ -41,7 +41,7 @@ void loadTest(GlobalState& globalState, const std::filesystem::path& path) {
                 LOG_ERROR("Unknown register '{}' in testcase!", registerName);
             }
             std::string value{ registerNode.val().str, registerNode.val().len };
-            u64 registerValue = textToNumber(value);
+            u64 registerValue = Parser::textToNumber(value);
 
             checkpoint.registers[registerName] = registerValue;
         }

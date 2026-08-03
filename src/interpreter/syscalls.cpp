@@ -15,7 +15,10 @@
 
 #include "syscalls.h"
 
-void syscall_read(CPU& cpu, Interpreter::Memory& memory) {
+namespace Interpreter::Syscalls
+{
+
+void syscall_read(CPU& cpu, Memory& memory) {
     s32 fd = static_cast<u32>(cpu.rdi);
     u64 bufAddress = cpu.rsi;
     u64 count = static_cast<u32>(cpu.rdx);
@@ -23,17 +26,17 @@ void syscall_read(CPU& cpu, Interpreter::Memory& memory) {
     void* inputRaw = malloc(count);
 
     s64 readBytesCount = read(fd, inputRaw, count);
-    std::string input = std::string(static_cast<char*>(inputRaw), readBytesCount);
-    free(inputRaw);
 
-    for (u32 i = 0; i < readBytesCount - 1; ++i) {
-        u8 byte = static_cast<u8>(input[i]);
-        memory.writeMemory<u8>(bufAddress + i, byte);
+    u8* input = static_cast<u8*>(inputRaw);
+    for (u32 i = 0; i < readBytesCount; ++i) {
+        memory.writeMemory<u8>(bufAddress + i, input[i]);
     }
+
+    free(inputRaw);
     cpu.rax = readBytesCount;
 }
 
-void syscall_write(CPU& cpu, Interpreter::Memory& memory) {
+void syscall_write(CPU& cpu, Memory& memory) {
     s32 fd = static_cast<u32>(cpu.rdi);
     u64 bufAddress = cpu.rsi;
     u64 count = static_cast<u32>(cpu.rdx);
@@ -48,7 +51,7 @@ void syscall_write(CPU& cpu, Interpreter::Memory& memory) {
     cpu.rax = writtenBytesCount;
 }
 
-void syscall_open(CPU& cpu, Interpreter::Memory& memory) {
+void syscall_open(CPU& cpu, Memory& memory) {
     u64 pathAddress = (cpu.rdi);
     u32 flags = static_cast<u32>(cpu.rsi); // Needs mapping from Linux to Windows
     u32 mode = static_cast<u32>(cpu.rdx);
@@ -65,7 +68,9 @@ void syscall_open(CPU& cpu, Interpreter::Memory& memory) {
     cpu.rax = result;
 }
 
-void syscall_exit(CPU& cpu, Interpreter::Memory& memory) {
+void syscall_exit(CPU& cpu, Memory& memory) {
     u32 exitCode = static_cast<u32>(cpu.rdi);
     LOG_INFO("Program finished with exit code {}", exitCode);
 }
+
+} // namespace Interpreter::Syscalls

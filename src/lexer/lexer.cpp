@@ -65,6 +65,11 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
 
             if (c == '\'') {
                 if (!inChar) {
+                    if (inString) {
+                        tokens.back().lexeme += c;
+                        tokens.back().length += 1;
+                        continue;
+                    }
                     tokens.push_back(Token{ Token::Type::Char, std::string{}, lineNumber, column, 0 });
                     inChar = true;
                 } else {

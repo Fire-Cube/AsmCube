@@ -9,14 +9,19 @@
 #include "registers.h"
 #include "memory.h"
 
-void syscall_read(CPU& cpu, Interpreter::Memory& memory);
-void syscall_write(CPU& cpu, Interpreter::Memory& memory);
-void syscall_open(CPU& cpu, Interpreter::Memory& memory);
-void syscall_exit(CPU& cpu, Interpreter::Memory& memory);
+namespace Interpreter::Syscalls
+{
 
-inline std::unordered_map<u32, std::function<void(CPU& cpu, Interpreter::Memory& memory)>> syscallTable = {
+void syscall_read(CPU& cpu, Memory& memory);
+void syscall_write(CPU& cpu, Memory& memory);
+void syscall_open(CPU& cpu, Memory& memory);
+void syscall_exit(CPU& cpu, Memory& memory);
+
+inline std::unordered_map<u32, std::function<void(CPU& cpu, Memory& memory)>> syscallTable = {
     {0,  syscall_read},
     {1,  syscall_write},
     {2,  syscall_open},
     {60, syscall_exit},
 };
+
+} // namespace Interpreter::Syscalls

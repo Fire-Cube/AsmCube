@@ -2,43 +2,84 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "instructions.h"
+#include "instructions_helper.h"
 #include "parser/parser.h"
 #include "interpreter.h"
 #include "syscalls.h"
 #include "testcases/testcase.h"
 
-namespace Instructions
+namespace Interpreter::Instructions
 {
-
-u32 lea(GlobalState& globalState, Instruction& instruction) {
-    auto& operand = std::get<Memory>(instruction.operands[0]);
+u32 lea(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto& operand = std::get<Ast::Memory>(instruction.operands[0]);
     u64 addr = resolveMemory(operand, globalState);
     writeOperand(instruction.operands[1], addr, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 Xor(GlobalState& globalState, Instruction& instruction) {
+u32 Xor(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     u64 right = readOperand(instruction.operands[1], operandSize, globalState);
-    writeOperand(instruction.operands[1], left ^ right, globalState);
+
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+    u64 a = left & mask;
+    u64 b = right & mask;
+
+    u128 value = static_cast<u128>(a) ^ static_cast<u128>(b);
+    u64 res = static_cast<u64>(value & mask);
+
+    // CF
+    globalState.cpu.cf = 0;
+
+    // OF
+    globalState.cpu.of = 0;
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    writeOperand(instruction.operands[1], res, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 add(GlobalState& globalState, Instruction& instruction) {
+u32 And(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     u64 right = readOperand(instruction.operands[1], operandSize, globalState);
 
-    u64 width;
-    switch (operandSize[0]) {
-        case 'b': width = 8;  break;
-        case 'w': width = 16; break;
-        case 'l': width = 32; break;
-        case 'q': width = 64; break;
-    }
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+    u64 a = left & mask;
+    u64 b = right & mask;
+
+    u128 value = static_cast<u128>(a) & static_cast<u128>(b);
+    u64 res = static_cast<u64>(value & mask);
+
+    // CF
+    globalState.cpu.cf = 0;
+
+    // OF
+    globalState.cpu.of = 0;
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    writeOperand(instruction.operands[1], res, globalState);
+    globalState.cpu.rip += 8;
+    return 0;
+}
+
+u32 add(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -57,32 +98,20 @@ u32 add(GlobalState& globalState, Instruction& instruction) {
     u64 sr = res & sign;
     globalState.cpu.of = (sa == sb) && (sa != sr);
 
-    // SF
-    globalState.cpu.sf = (res & sign) != 0;
-
-    // ZF
-    globalState.cpu.zf = (res == 0);
-
-    // PF
-    globalState.cpu.pf = std::popcount(static_cast<u8>(res)) % 2 == 0;
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
 
     writeOperand(instruction.operands[1], res, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 sub(GlobalState& globalState, Instruction& instruction) {
+u32 sub(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     u64 right = readOperand(instruction.operands[1], operandSize, globalState);
 
-    u64 width;
-    switch (operandSize[0]) {
-        case 'b': width = 8;  break;
-        case 'w': width = 16; break;
-        case 'l': width = 32; break;
-        case 'q': width = 64; break;
-    }
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -101,21 +130,158 @@ u32 sub(GlobalState& globalState, Instruction& instruction) {
     u64 sr = res & sign;
     globalState.cpu.of = (sb != sa) && (sr != sb);
 
-    // SF
-    globalState.cpu.sf = (sr != 0);
-
-    // ZF
-    globalState.cpu.zf = (res == 0);
-
-    // PF
-    globalState.cpu.pf = (std::popcount(static_cast<u8>(res)) % 2) == 0;
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
 
     writeOperand(instruction.operands[1], res, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 mov(GlobalState& globalState, Instruction& instruction) {
+u32 cmp(GlobalState& globalState, Ast::Instruction& instruction) {
+    // CMP is basically SUB without writing the result
+    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+    u64 a = left & mask;
+    u64 b = right & mask;
+
+    u128 diff = static_cast<u128>(b) - static_cast<u128>(a);
+    u64 res = static_cast<u64>(diff) & mask;
+
+    // CF
+    globalState.cpu.cf = (b < a);
+
+    // OF
+    u64 sign = 1ULL << (width - 1);
+    u64 sb = b & sign;
+    u64 sa = a & sign;
+    u64 sr = res & sign;
+    globalState.cpu.of = (sb != sa) && (sr != sb);
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    globalState.cpu.rip += 8;
+    return 0;
+}
+
+u32 inc(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], globalState.cpu, instruction.mnemonic.suffix);
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+
+    u64 a = left & mask;
+
+    u128 sum = static_cast<u128>(a) + 1;
+    u64 res = static_cast<u64>(sum) & mask;
+
+    // OF
+    u64 sign = 1ULL << (width - 1);
+    u64 sa = a & sign;
+    u64 sr = res & sign;
+    globalState.cpu.of = (sa == 0) && (sr != 0);
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    globalState.cpu.rip += 8;
+
+    writeOperand(instruction.operands[0], res, globalState);
+    return 0;
+}
+
+u32 dec(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], globalState.cpu, instruction.mnemonic.suffix);
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+
+    u64 a = left & mask;
+
+    u128 diff = static_cast<u128>(a) - 1;
+    u64 res = static_cast<u64>(diff) & mask;
+
+    // OF
+    u64 sign = 1ULL << (width - 1);
+    u64 sa = a & sign;
+    u64 sr = res & sign;
+    globalState.cpu.of = (sa != 0) && (sr == 0);
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    globalState.cpu.rip += 8;
+
+    writeOperand(instruction.operands[0], res, globalState);
+    return 0;
+}
+
+u32 neg(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], globalState.cpu, instruction.mnemonic.suffix);
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+
+    u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
+
+    u64 a = left & mask;
+
+    u128 diff = 0 - static_cast<u128>(a);
+    u64 res = static_cast<u64>(diff) & mask;
+
+    // CF
+    globalState.cpu.cf = (a != 0);
+
+    // OF
+    u64 sign = 1ULL << (width - 1);
+    globalState.cpu.of = (a == sign);
+
+    // SF, ZF, PF
+    Helper::calculateFlagsSFZFPF(globalState, res, width);
+
+    writeOperand(instruction.operands[0], res, globalState);
+    globalState.cpu.rip += 8;
+    return 0;
+}
+
+u32 test(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto operandSize = getOperandSize(instruction.operands[0], globalState.cpu, instruction.mnemonic.suffix);
+    u64 width = Helper::getSizeOfGPR(operandSize[0]);
+
+    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+
+    u64 result = left & right;
+
+    // CF
+    globalState.cpu.cf = 0;
+
+    // OF
+    globalState.cpu.of = 0;
+
+    // SF, ZF, PF
+    Instructions::Helper::calculateFlagsSFZFPF(globalState, result, width);
+
+    globalState.cpu.rip += 8;
+    return 0;
+}
+
+u32 stc(GlobalState& globalState, Ast::Instruction& instruction) {
+    globalState.cpu.cf = 1;
+    globalState.cpu.rip += 8;
+    return 0;
+}
+
+u32 mov(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
     writeOperand(instruction.operands[1], left, globalState);
@@ -123,103 +289,56 @@ u32 mov(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
-u32 push(GlobalState& globalState, Instruction& instruction) {
+u32 push(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[0], globalState.cpu, instruction.mnemonic.suffix);
     u64 value = readOperand(instruction.operands[0], operandSize, globalState);
     globalState.cpu.rsp -= 8;
-    globalState.memory.writeMemoryNoExcept(globalState.cpu.rsp, value);
+    globalState.memory.writeMemory(globalState.cpu.rsp, value);
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 pop(GlobalState& globalState, Instruction& instruction) {
+u32 pop(GlobalState& globalState, Ast::Instruction& instruction) {
     u64 value;
-    globalState.memory.readMemoryNoExcept(globalState.cpu.rsp, value);
+    globalState.memory.readMemory(globalState.cpu.rsp, value);
     writeOperand(instruction.operands[0], value, globalState);
     globalState.cpu.rsp += 8;
     globalState.cpu.rip += 8;
     return 0;
 }
 
-u32 call(GlobalState& globalState, Instruction& instruction) {
+u32 call(GlobalState& globalState, Ast::Instruction& instruction) {
     std::string targetSize = "q";
     u64 address = readOperand(instruction.operands[0], targetSize, globalState);
     globalState.cpu.rsp -= 8;
-    globalState.memory.writeMemoryNoExcept(globalState.cpu.rsp, globalState.cpu.rip);
+    globalState.memory.writeMemory(globalState.cpu.rsp, globalState.cpu.rip);
     globalState.cpu.rip = address;
     return 0;
 }
 
-u32 ret(GlobalState& globalState, Instruction& instruction) {
+u32 ret(GlobalState& globalState, Ast::Instruction& instruction) {
     u64 returnAddress;
-    globalState.memory.readMemoryNoExcept(globalState.cpu.rsp, returnAddress);
+    globalState.memory.readMemory(globalState.cpu.rsp, returnAddress);
     globalState.cpu.rsp += 8;
     globalState.cpu.rip = returnAddress + 8;
     return 0;
 }
 
-u32 jmp(GlobalState& globalState, Instruction& instruction) {
+u32 jmp(GlobalState& globalState, Ast::Instruction& instruction) {
     std::string targetSize = "q";
-    globalState.cpu.rip = readOperand(instruction.operands[0], targetSize, globalState);
+    Ast::Operand& operand = instruction.operands[0];
+    globalState.cpu.rip = readOperand(operand, targetSize, globalState);
+
     return 0;
 }
 
-u32 Jcc(GlobalState& globalState, Instruction& instruction) {
-    CondCode condCode = std::get<CondCode>(instruction.additionalData.value());
+u32 Jcc(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto condCode = std::get<Ast::CondCode>(instruction.additionalData.value());
 
-    bool shouldJump = false;
-    switch (condCode) {
-        case CondCode::overflow:
-            shouldJump = globalState.cpu.of; break;
-        case CondCode::notOverflow:
-            shouldJump = !globalState.cpu.of; break;
-        case CondCode::sign:
-            shouldJump = globalState.cpu.sf; break;
-        case CondCode::notSign:
-            shouldJump = !globalState.cpu.sf; break;
-        case CondCode::equal:
-        case CondCode::zero:
-            shouldJump = globalState.cpu.zf; break;
-        case CondCode::notEqual:
-        case CondCode::notZero:
-            shouldJump = !globalState.cpu.zf; break;
-        case CondCode::below:
-        case CondCode::notAboveOrEqual:
-        case CondCode::carry:
-            shouldJump = globalState.cpu.cf; break;
-        case CondCode::notBelow:
-        case CondCode::aboveOrEqual:
-        case CondCode::notCarry:
-            shouldJump = !globalState.cpu.cf; break;
-        case CondCode::belowOrEqual:
-        case CondCode::notAbove:
-            shouldJump = globalState.cpu.cf ||globalState.cpu.zf; break;
-        case CondCode::above:
-        case CondCode::notBelowOrEqual:
-            shouldJump = !globalState.cpu.cf && !globalState.cpu.zf; break;
-        case CondCode::less:
-        case CondCode::notGreaterOrEqual:
-            shouldJump = globalState.cpu.sf != globalState.cpu.of; break;
-        case CondCode::greaterOrEqual:
-        case CondCode::notLess:
-            shouldJump = globalState.cpu.sf == globalState.cpu.of; break;
-        case CondCode::lessOrEqual:
-        case CondCode::notGreater:
-            shouldJump = globalState.cpu.zf || (globalState.cpu.sf != globalState.cpu.of); break;
-        case CondCode::greater:
-        case CondCode::notLessOrEqual:
-            shouldJump = !globalState.cpu.zf && (globalState.cpu.sf == globalState.cpu.of); break;
-        case CondCode::parity:
-        case CondCode::parityEven:
-            shouldJump = globalState.cpu.pf; break;
-        case CondCode::notParity:
-        case CondCode::parityOdd:
-            shouldJump = !globalState.cpu.pf; break;
-    }
-
-    if (shouldJump) {
+    if (bool shouldJump = Helper::evaluateCondCodes(condCode, globalState)) {
         std::string targetSize = "q";
-        u64 targetAdress = readOperand(instruction.operands[0], targetSize, globalState);
+        Ast::Operand& operand = instruction.operands[0];
+        u64 targetAdress = readOperand(operand, targetSize, globalState);
         globalState.cpu.rip = targetAdress;
     }
     else {
@@ -229,12 +348,25 @@ u32 Jcc(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
-u32 hlt(GlobalState& globalState, Instruction& instruction) {
+u32 CMOVcc(GlobalState& globalState, Ast::Instruction& instruction) {
+    auto condCode = std::get<Ast::CondCode>(instruction.additionalData.value());
+    LOG_DEBUG("CondCode of CMOVcc is {}", magic_enum::enum_name(condCode));
+
+    if (bool shouldMov = Helper::evaluateCondCodes(condCode, globalState)) {
+        mov(globalState, instruction);
+    }
+    else {
+        globalState.cpu.rip += 8;
+    }
+    return 0;
+}
+
+u32 hlt(GlobalState& globalState, Ast::Instruction& instruction) {
     LOG_INFO("HLT encountered. Halting execution.");
     return 1;
 }
 
-u32 leave(GlobalState& globalState, Instruction& instruction) {
+u32 leave(GlobalState& globalState, Ast::Instruction& instruction) {
     globalState.cpu.rsp = globalState.cpu.rbp;
     u64 oldRbp;
     globalState.memory.readMemoryNoExcept(globalState.cpu.rsp, oldRbp);
@@ -244,11 +376,11 @@ u32 leave(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
-u32 syscall(GlobalState& globalState, Instruction& instruction) {
-    if (syscallTable.find(globalState.cpu.rax) == syscallTable.end()) {
+u32 syscall(GlobalState& globalState, Ast::Instruction& instruction) {
+    if (Syscalls::syscallTable.find(globalState.cpu.rax) == Syscalls::syscallTable.end()) {
         LOG_ERROR("Unknown syscall number {}", globalState.cpu.rax);
     }
-    syscallTable[globalState.cpu.rax](globalState.cpu, globalState.memory);
+    Syscalls::syscallTable[globalState.cpu.rax](globalState.cpu, globalState.memory);
     globalState.cpu.rip += 8;
     if (globalState.cpu.rax == 60) {
         return 1;
@@ -256,7 +388,7 @@ u32 syscall(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
-u32 checkpoint(GlobalState& globalState, Instruction& instruction) {
+u32 checkpoint(GlobalState& globalState, Ast::Instruction& instruction) {
     if (globalState.testcase.testEnabled) {
         std::string targetSize = "q";
         u8 checkpointID = readOperand(instruction.operands[0], targetSize, globalState);
@@ -303,4 +435,4 @@ u32 checkpoint(GlobalState& globalState, Instruction& instruction) {
     return 0;
 }
 
-} // namespace Instructions
+} // namespace Interpreter::Instructions

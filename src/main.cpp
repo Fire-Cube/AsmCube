@@ -18,6 +18,10 @@
 #include "interpreter/self_test.h"
 #include "testcases/loader.h"
 
+#ifdef WIN32
+#include <windows_stuff.h>
+#endif
+
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser argumentParser("AsmCube");
 
@@ -100,9 +104,9 @@ int main(int argc, char *argv[]) {
         LOG_INFO("Lexed tokens dumped to '{}'.", outputPath.string());
     }
 
-    Ast ast;
+    Ast::Ast ast;
     startTime = std::chrono::high_resolution_clock::now();
-    parse(tokens, ast);
+    Parser::parse(tokens, ast);
     endTime = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
     LOG_DEBUG("Parsing completed in {} ms.", duration);
@@ -127,11 +131,22 @@ int main(int argc, char *argv[]) {
         Testcases::loadTest(globalState, testConfigPath);
     }
 
-    startTime = std::chrono::high_resolution_clock::now();
-    run(ast, globalState);
-    endTime = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;
-    LOG_DEBUG("Run completed in {} ms.", duration);
+    #ifdef WIN32
+    u32 codePage = Win_GetConsoleCP();
+    if (codePage != 65001) {
+        Win_SetConsoleCP(65001);
+        Win_SetConsoleOutputCP(65001);
+    }
+    #endif
+
+    Interpreter::run(ast, globalState);
+
+    #ifdef WIN32
+    if (codePage != 65001) {
+        Win_SetConsoleCP(codePage);
+        Win_SetConsoleOutputCP(codePage);
+    }
+    #endif
 
     return 0;
 }
