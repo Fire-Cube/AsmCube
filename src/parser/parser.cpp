@@ -113,7 +113,7 @@ int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTo
     return 0;
 }
 
-int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineTokens, std::vector<Ast::Section>& ast) {
+int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineTokens) {
     std::vector<std::vector<u32>> operandCommaPositions { {} , {} };
     bool inParen = false;
     u32 parameterCommaPos = 0;
@@ -204,7 +204,6 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
             }
         }
     }
-    ast.back().items.push_back(instruction);
     return 0;
 }
 
@@ -245,15 +244,28 @@ bool formMatches(const Interpreter::Mnemonics::InstructionForm& form, const std:
     return true;
 }
 
-bool checkOperands(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const std::vector<Ast::Operand>& operands) {
+const std::vector<Interpreter::Mnemonics::OperandSpec>* findMatchingForm(
+    const Interpreter::Mnemonics::InstructionDetails& instructionDef, const std::vector<Ast::Operand>& operands) {
     for (const auto& form : instructionDef.forms) {
         if (formMatches(form, operands)) {
-            return true;
+            return &form;
         }
     }
-    return false;
+    return nullptr;
 }
 
+void resolveRelativeOperands(const Interpreter::Mnemonics::InstructionForm& form, std::vector<Ast::Operand>& operands) {
+    for (u32 i = 0; i < operands.size(); ++i) {
+        if (form[i].type != Interpreter::Mnemonics::OpType::Relative) {
+            continue;
+        }
+        if (std::holds_alternative<Ast::Symbol>(operands[i])) {
+            operands[i] = Ast::RelativeImmediate{
+                Ast::Label{ std::get<Ast::Symbol>(operands[i]).name }
+            };
+        }
+    }
+}
 int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
     std::vector<std::vector<Token>> inputLines { std::vector<Token>{} };
     u32 lineNumber = 0;
@@ -349,14 +361,19 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
                     mnemonic.suffix = suffix;
                 }
                 instruction.mnemonic = mnemonic;
-                parseOperands(instruction, lineTokens, ast);
-                if (!checkOperands(instructionDef, instruction.operands)) {
+                parseOperands(instruction, lineTokens);
+
+                const auto* form = findMatchingForm(instructionDef, instruction.operands);
+                if (form == nullptr) {
                     LOG_ERROR("Invalid operands for mnemonic '{}' at line {} column {}", mnemonicName, lineTokens[0].line, lineTokens[0].column);
                 }
+                resolveRelativeOperands(*form, instruction.operands);
+                ast.back().items.push_back(instruction);
+
                 continue;
             }
 
-            if (lineTokens[0].type == Token::Type::Identifier) {
+            else {
                 std::optional<Ast::CondCode> condCode;
                 std::string mnemonicName;
 
@@ -389,7 +406,19 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
 
                     instruction.mnemonic = mnemonic;
                     instruction.additionalData = condCode;
-                    parseOperands(instruction, lineTokens, ast);
+                    parseOperands(instruction, lineTokens);
+                    instruction.mnemonic = mnemonic;
+                    instruction.additionalData = condCode;
+                    parseOperands(instruction, lineTokens);
+
+                    auto& instructionDef = Interpreter::Mnemonics::instructionDefinitions[mnemonicName];
+                    const auto* form = findMatchingForm(instructionDef, instruction.operands);
+                    if (form == nullptr) {
+                        LOG_ERROR("Invalid operands for mnemonic '{}' at line {} column {}", mnemonicName, lineTokens[0].line, lineTokens[0].column);
+                    }
+                    resolveRelativeOperands(*form, instruction.operands);
+
+                    ast.back().items.push_back(instruction);
                     continue;
                 }
             }

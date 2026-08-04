@@ -166,8 +166,14 @@ u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalStat
             return std::get<Ast::Immediate>(operand).value;
 
         case Ast::OperandType::RelativeImmediate:
-            // Not generated in parser yet
-            return globalState.cpu.rip + 8 + std::get<Ast::RelativeImmediate>(operand).offset;
+            {
+                const auto& relative = std::get<Ast::RelativeImmediate>(operand);
+                if (std::holds_alternative<Ast::Label>(relative.target)) {
+                    return globalState.symbolTable.findSymbol(std::get<Ast::Label>(relative.target).name).address;
+                }
+
+                return globalState.cpu.rip + 8 + std::get<s64>(relative.target);
+            }
 
         case Ast::OperandType::Symbol:
             {

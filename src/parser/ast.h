@@ -120,10 +120,11 @@ struct Immediate {
 };
 
 struct RelativeImmediate {
-    s64 offset;
+    std::variant<s64, Label> target;
+
     template <class Archive>
     void serialize(Archive& archive) {
-        archive(cereal::make_nvp("offset", offset));
+        archive(cereal::make_nvp("target", target));
     }
 };
 
