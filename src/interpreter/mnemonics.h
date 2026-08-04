@@ -31,20 +31,25 @@ enum class InstructionSet {
 
 struct OperandSpec {
     enum class Type {
-        Immediate,
         Register,
         Memory,
+        RegisterOrMemory,
+        Immediate,
+        Relative,
+        MemoryNoSize,
     };
-    Type operand1;
-    std::optional<Type> operand2;
+    Type type;
+    std::vector<u8> sizes;
 };
+
+using InstructionForm = std::vector<OperandSpec>;
+using OpType = OperandSpec::Type;
 
 struct InstructionDetails {
     InstructionSet instructionSet;
-    std::vector<u64> allowedSizes;
     std::vector<std::string> allowedPrefixes;
     std::vector<std::string> allowedSuffixes;
-    std::vector<OperandSpec> operandSpecs;
+    std::vector<InstructionForm> forms;
     std::function<u32(GlobalState&, Ast::Instruction&)> implementation;
 };
 
@@ -55,60 +60,74 @@ inline std::vector<std::string> integerSizeSuffixes = {
     "q", // quad
 };
 
-inline std::vector<OperandSpec> NormalOperands = std::vector<OperandSpec> {
-    { OperandSpec::Type::Register,  OperandSpec::Type::Register },
-    { OperandSpec::Type::Register,  OperandSpec::Type::Memory },
-    { OperandSpec::Type::Memory,    OperandSpec::Type::Register },
-    { OperandSpec::Type::Immediate, OperandSpec::Type::Register },
-    { OperandSpec::Type::Immediate, OperandSpec::Type::Memory },
+inline std::vector<u8> All { 8, 16, 32, 64 };
+inline std::vector<u8> WordAndUp { 16, 32, 64 };
+
+inline std::vector<InstructionForm> NormalForms {
+    {{ OpType::Register, All }, { OpType::RegisterOrMemory, All }},
+    {{ OpType::Memory, All }, { OpType::Register, All }},
+    {{ OpType::Immediate, All }, { OpType::RegisterOrMemory, All }},
 };
 
-inline std::vector<OperandSpec> NormalOperandsNoMemorySource = std::vector<OperandSpec> {
-    { OperandSpec::Type::Register,  OperandSpec::Type::Register },
-    { OperandSpec::Type::Register,  OperandSpec::Type::Memory },
-    { OperandSpec::Type::Immediate, OperandSpec::Type::Register },
-    { OperandSpec::Type::Immediate, OperandSpec::Type::Memory },
+inline std::vector<InstructionForm> NoMemoryForms {
+    {{ OpType::Register, All }, { OpType::RegisterOrMemory, All }},
+    {{ OpType::Immediate, All }, { OpType::RegisterOrMemory, All }},
 };
 
-inline std::vector<OperandSpec> SingleOperands = std::vector<OperandSpec> {
-    { OperandSpec::Type::Register },
-    { OperandSpec::Type::Memory },
-    { OperandSpec::Type::Immediate },
+inline std::vector<InstructionForm> SingleOpOnlyRMForms {
+    {{ OpType::RegisterOrMemory, All }},
 };
 
-inline std::vector<OperandSpec> SingleOperandsNoImmediate = std::vector<OperandSpec> {
-    { OperandSpec::Type::Register },
-    { OperandSpec::Type::Memory },
-};
-
-inline std::vector<OperandSpec> MemoryRegisterOperand = std::vector<OperandSpec> {
-    { OperandSpec::Type::Memory, OperandSpec::Type::Register },
+inline std::vector<InstructionForm> NoOperandsForms {
+    {}
 };
 
 inline std::unordered_map<std::string, InstructionDetails> instructionDefinitions = {
-    {"lea", {InstructionSet::x86_64, {16, 32, 64}, {}, integerSizeSuffixes, MemoryRegisterOperand, Instructions::lea }},
-    {"mov", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::mov }},
-    {"xor", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::Xor }},
-    {"and", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::And }},
-    {"add", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::add }},
-    {"sub", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::sub }},
-    {"cmp", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::cmp }},
-    {"inc", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, SingleOperands, Instructions::inc }},
-    {"dec", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, SingleOperands, Instructions::dec }},
-    {"neg", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, SingleOperands, Instructions::neg }},
-    {"test", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperandsNoMemorySource, Instructions::test }},
-    {"stc", {InstructionSet::x86_64, {}, {}, {}, {}, Instructions::stc }},
-    {"push", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, SingleOperands, Instructions::push }},
-    {"pop", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, SingleOperandsNoImmediate, Instructions::pop }},
-    {"call", {InstructionSet::x86_64, {64}, {}, {"q"}, {{OperandSpec::Type::Immediate}},Instructions::call }},
-    {"ret", {InstructionSet::x86_64, {}, {}, {"q"}, {}, Instructions::ret }},
-    {"jmp", {InstructionSet::x86_64, {64}, {}, {"q"}, {{OperandSpec::Type::Immediate}}, Instructions::jmp }},
-    {"Jcc", {InstructionSet::x86_64, {64}, {}, {"q"}, {{OperandSpec::Type::Immediate}}, Instructions::Jcc }},
-    {"CMOVcc", {InstructionSet::x86_64, {8, 16, 32, 64}, {}, integerSizeSuffixes, NormalOperands, Instructions::CMOVcc }},
-    {"hlt", {InstructionSet::x86_64, {}, {}, {}, {}, Instructions::hlt }},
-    {"leave", {InstructionSet::x86_64, {}, {}, {}, {}, Instructions::leave }},
-    {"syscall", {InstructionSet::x86_64, {}, {}, {}, {}, Instructions::syscall }},
-    {"checkpoint", {InstructionSet::custom, {64}, {}, {}, {{OperandSpec::Type::Immediate}}, Instructions::checkpoint }},
+    {"lea", {InstructionSet::x86_64, {}, integerSizeSuffixes, {
+        {{ OpType::MemoryNoSize, {} }, { OpType::Register, WordAndUp }},
+    }, Instructions::lea }},
+    {"mov", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::mov }},
+    {"xor", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::Xor }},
+    {"and", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::And }},
+    {"add", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::add }},
+    {"sub", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::sub }},
+    {"cmp", {InstructionSet::x86_64, {}, integerSizeSuffixes, NormalForms, Instructions::cmp }},
+    {"inc", {InstructionSet::x86_64, {}, integerSizeSuffixes, SingleOpOnlyRMForms, Instructions::inc }},
+    {"dec", {InstructionSet::x86_64, {}, integerSizeSuffixes, SingleOpOnlyRMForms, Instructions::dec }},
+    {"neg", {InstructionSet::x86_64, {}, integerSizeSuffixes, SingleOpOnlyRMForms, Instructions::neg }},
+    {"test", {InstructionSet::x86_64, {}, integerSizeSuffixes, NoMemoryForms, Instructions::test }},
+    {"push", {InstructionSet::x86_64, {}, {"w", "q"}, {
+        {{ OpType::RegisterOrMemory, {16, 64} }},
+        {{ OpType::Immediate, {8, 16, 32} }},
+    }, Instructions::push }},
+    {"pop", {InstructionSet::x86_64, {}, {"w", "q"}, {
+            {{ OpType::RegisterOrMemory, {16, 64} }},
+    }, Instructions::pop }},
+    {"call", {InstructionSet::x86_64, {}, {"q"}, {
+        {{ OpType::Relative, {32} }},
+            {{ OpType::RegisterOrMemory, {64} }},
+    }, Instructions::call }},
+    {"ret", {InstructionSet::x86_64, {}, {"q"}, {
+        {},
+        {{ OpType::Immediate, {16} }},
+    }, Instructions::ret }},
+    {"jmp", {InstructionSet::x86_64, {}, {"q"}, {
+        {{ OpType::Relative, {8, 32} }},
+        {{ OpType::RegisterOrMemory, {64} }},
+    }, Instructions::jmp }},
+    {"Jcc", {InstructionSet::x86_64, {}, {"q"}, {
+        {{ OpType::Relative, {8, 32} }},
+    }, Instructions::Jcc }},
+    {"CMOVcc", {InstructionSet::x86_64, {}, integerSizeSuffixes, {
+        {{ OpType::RegisterOrMemory, WordAndUp }, { OpType::Register, WordAndUp }},
+    }, Instructions::CMOVcc }},
+    {"stc", {InstructionSet::x86_64, {}, {}, NoOperandsForms, Instructions::stc }},
+    {"hlt", {InstructionSet::x86_64, {}, {}, NoOperandsForms, Instructions::hlt }},
+    {"leave", {InstructionSet::x86_64, {}, {}, NoOperandsForms, Instructions::leave }},
+    {"syscall", {InstructionSet::x86_64, {}, {}, NoOperandsForms, Instructions::syscall }},
+    {"checkpoint", {InstructionSet::custom, {}, {}, {
+        {{ OpType::Immediate, {64} }},
+    }, Instructions::checkpoint }},
 };
 
 inline std::vector<std::string> populatePossiblePrefixes() {

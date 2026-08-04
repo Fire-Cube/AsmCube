@@ -208,63 +208,48 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
     return 0;
 }
 
-bool specOperand1Matches(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const Ast::Operand& operand) {
-    bool matches = false;
-    for (const auto& operandSpec : instructionDef.operandSpecs) {
-        if (std::holds_alternative<Ast::Register>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Register) {
-            matches = true;
-            break;
-        }
-        if (std::holds_alternative<Ast::Immediate>(operand) || std::holds_alternative<Ast::Symbol>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Immediate) {
-            matches = true;
-            break;
-        }
-        if (std::holds_alternative<Ast::Memory>(operand) && operandSpec.operand1 == Interpreter::Mnemonics::OperandSpec::Type::Memory) {
-            matches = true;
-            break;
-        }
+bool operandMatches(const Interpreter::Mnemonics::OperandSpec& spec, const Ast::Operand& operand) {
+    using OpType = Interpreter::Mnemonics::OpType;
+    switch (spec.type) {
+        case OpType::Register:
+            return std::holds_alternative<Ast::Register>(operand);
+
+        case OpType::Memory:
+        case OpType::MemoryNoSize:
+            return std::holds_alternative<Ast::Memory>(operand);
+
+        case OpType::RegisterOrMemory:
+            return std::holds_alternative<Ast::Register>(operand)
+                || std::holds_alternative<Ast::Memory>(operand);
+
+        case OpType::Immediate:
+            return std::holds_alternative<Ast::Immediate>(operand)
+                || std::holds_alternative<Ast::Symbol>(operand);
+
+        case OpType::Relative:
+            return std::holds_alternative<Ast::RelativeImmediate>(operand)
+                || std::holds_alternative<Ast::Symbol>(operand);
     }
-    return matches;
+    return false;
 }
 
-bool specOperand2Matches(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const Ast::Operand& operand) {
-    bool matches = false;
-    for (const auto& operandSpec : instructionDef.operandSpecs) {
-        if (std::holds_alternative<Ast::Register>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Register) {
-            matches = true;
-            break;
-        }
-        if (std::holds_alternative<Ast::Immediate>(operand) || std::holds_alternative<Ast::Symbol>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Immediate) {
-            matches = true;
-            break;
-        }
-        if (std::holds_alternative<Ast::Memory>(operand) && operandSpec.operand2 == Interpreter::Mnemonics::OperandSpec::Type::Memory) {
-            matches = true;
-            break;
+bool formMatches(const Interpreter::Mnemonics::InstructionForm& form, const std::vector<Ast::Operand>& operands) {
+    if (form.size() != operands.size()) {
+        return false;
+    }
+    for (u32 i = 0; i < operands.size(); ++i) {
+        if (!operandMatches(form[i], operands[i])) {
+            return false;
         }
     }
-    return matches;
+    return true;
 }
 
 bool checkOperands(const Interpreter::Mnemonics::InstructionDetails& instructionDef, const std::vector<Ast::Operand>& operands) {
-    if (instructionDef.allowedSizes.empty() && !operands.empty()) {
-        return false;
-    }
-    if (instructionDef.operandSpecs.empty() && !operands.empty() || !instructionDef.operandSpecs.empty() && operands.empty()) {
-        return false;
-    }
-    if (instructionDef.operandSpecs.empty() && operands.empty()) {
-        return true;
-    }
-
-    if (specOperand1Matches(instructionDef, operands[0])) {
-        if (instructionDef.operandSpecs[0].operand2.has_value()) {
-            if (operands.size() < 2) {
-                return false;
-            }
-            return specOperand2Matches(instructionDef, operands[1]);
+    for (const auto& form : instructionDef.forms) {
+        if (formMatches(form, operands)) {
+            return true;
         }
-        return true;
     }
     return false;
 }
