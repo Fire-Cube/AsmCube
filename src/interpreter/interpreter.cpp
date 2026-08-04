@@ -87,7 +87,7 @@ std::string getRegisterSize(const CPU& cpu, const std::string& registerName) {
 std::string getOperandSize(const Ast::Operand& left, const CPU& cpu, const std::string& sizeSuffix) {
     if (std::holds_alternative<Ast::Register>(left)) {
         auto& reg = std::get<Ast::Register>(left);
-        auto regSize = getRegisterSize(cpu, reg.name.substr(1));
+        auto regSize = getRegisterSize(cpu, reg.name);
         if (!sizeSuffix.empty() && sizeSuffix != regSize) {
             LOG_ERROR("Size suffix does not match register size");
         }
@@ -108,10 +108,10 @@ std::string getOperandSize(const Ast::Operand& left, const Ast::Operand& right, 
     }
     if (std::holds_alternative<Ast::Register>(right)) {
         auto& dstReg = std::get<Ast::Register>(right);
-        auto dstSize = getRegisterSize(cpu, dstReg.name.substr(1));
+        auto dstSize = getRegisterSize(cpu, dstReg.name);
         if (std::holds_alternative<Ast::Register>(left)) {
             auto& srcReg = std::get<Ast::Register>(left);
-            auto srcSize = getRegisterSize(cpu, srcReg.name.substr(1));
+            auto srcSize = getRegisterSize(cpu, srcReg.name);
             if (dstSize != srcSize) {
                 LOG_ERROR("Destination register size is different than source register size");
             }
@@ -124,7 +124,7 @@ std::string getOperandSize(const Ast::Operand& left, const Ast::Operand& right, 
     if (std::holds_alternative<Ast::Memory>(right)) {
         if (std::holds_alternative<Ast::Register>(left)) {
             auto& reg = std::get<Ast::Register>(left);
-            return getRegisterSize(cpu, reg.name.substr(1));
+            return getRegisterSize(cpu, reg.name);
         }
         if (std::holds_alternative<Ast::Memory>(left)) {
             LOG_ERROR("Memory can not be in both src and dst operands");
@@ -146,7 +146,7 @@ u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalStat
         case Ast::OperandType::Register:
             {
                 auto& reg = std::get<Ast::Register>(operand);
-                std::string regName = reg.name.substr(1);
+                std::string regName = reg.name;
                 if (globalState.cpu.reg64.contains(regName)) {
                     return *globalState.cpu.reg64[regName];
                 }
@@ -232,7 +232,7 @@ void writeOperand(const Ast::Operand& operand, const u64 value, GlobalState& glo
             {
                 // Register
                 auto& reg = std::get<Ast::Register>(operand);
-                std::string regName = reg.name.substr(1);
+                std::string regName = reg.name;
                 if (globalState.cpu.reg64.contains(regName)) {
                     *globalState.cpu.reg64[regName] = value;
                     break;

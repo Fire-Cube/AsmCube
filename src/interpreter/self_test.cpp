@@ -7,11 +7,11 @@
 
 void selfTestCPU() {
     GlobalState globalState{};
-    Ast::Operand operandRAX{ Ast::Register{.name="%rax"} };
-    Ast::Operand operandEAX{ Ast::Register{.name="%eax"} };
-    Ast::Operand operandAX{ Ast::Register{.name="%ax"} };
-    Ast::Operand operandAH{ Ast::Register{.name="%ah"} };
-    Ast::Operand operandAL{ Ast::Register{.name="%al"} };
+    Ast::Operand operandRAX{ Ast::Register{.name="rax"} };
+    Ast::Operand operandEAX{ Ast::Register{.name="eax"} };
+    Ast::Operand operandAX{ Ast::Register{.name="ax"} };
+    Ast::Operand operandAH{ Ast::Register{.name="ah"} };
+    Ast::Operand operandAL{ Ast::Register{.name="al"} };
     
     std::string targetSizeQuad = "q";
     std::string targetSizeLong = "l";

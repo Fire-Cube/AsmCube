@@ -162,7 +162,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
         }
         else {
             if (lineTokens[1].type == Token::Type::Register) {
-                instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme });
+                instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme.substr(1) });
             }
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
@@ -179,7 +179,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
         }
         else {
             if (lineTokens[parameterCommaPos + 1].type == Token::Type::Register) {
-                instruction.operands.push_back(Ast::Register{ lineTokens[parameterCommaPos + 1].lexeme });
+                instruction.operands.push_back(Ast::Register{ lineTokens[parameterCommaPos + 1].lexeme.substr(1) });
             }
             else if (lineTokens[parameterCommaPos + 1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[parameterCommaPos + 1].lexeme.substr(1); // Remove '$'
@@ -195,7 +195,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
             instruction.operands.push_back(Ast::Symbol{lineTokens[1].lexeme});
         }
         else if (lineTokens[1].type == Token::Type::Register) {
-            instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme });
+            instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme.substr(1) });
         }
         else if (lineTokens[1].type == Token::Type::Immediate) {
             std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
