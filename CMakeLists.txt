@@ -19,8 +19,6 @@ set(SOURCES
     src/logging.h
     src/magic_enum_overrides.h
     src/types.h
-    src/windows_stuff.cpp
-    src/windows_stuff.h
     src/lexer/lexer.cpp
     src/lexer/lexer.h
     src/parser/parser.cpp
@@ -42,6 +40,13 @@ set(SOURCES
     src/testcases/testcase.h
     src/main.cpp
 )
+
+if(WIN32)
+    list(APPEND SOURCES
+        src/windows_stuff.cpp
+        src/windows_stuff.h
+    )
+endif()
 
 SET(EXTERNALS
     src/externals/cereal/include
