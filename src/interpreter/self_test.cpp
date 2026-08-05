@@ -56,31 +56,31 @@ void selfTestCPU() {
     };
 
     resetRAX();
-    Interpreter::writeOperand(operandRAX, 0xDEADDEADDEAD, globalState);
+    Interpreter::writeOperand(operandRAX, 0xDEADDEADDEAD, targetSizeQuad, globalState);
     if (globalState.cpu.rax != 0xDEADDEADDEAD) {
         LOG_ERROR("Self-test failed: RAX writeOperand did not update RAX correctly!");
     }
 
     globalState.cpu.rax = 0x1234567890ABCDEF;
-    Interpreter::writeOperand(operandEAX, 0xDEADBEEF, globalState);
+    Interpreter::writeOperand(operandEAX, 0xDEADBEEF, targetSizeLong, globalState);
     if (globalState.cpu.rax != 0x00000000DEADBEEF) {
         LOG_ERROR("Self-test failed: EAX writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAX, 0xBEEF, globalState);
+    Interpreter::writeOperand(operandAX, 0xBEEF, targetSizeWord, globalState);
     if (globalState.cpu.rax != 0x1234567890ABBEEF) {
         LOG_ERROR("Self-test failed: AX writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAH, 0xAD, globalState);
+    Interpreter::writeOperand(operandAH, 0xAD, targetSizeByte, globalState);
     if (globalState.cpu.rax != 0x1234567890ABADEF) {
         LOG_ERROR("Self-test failed: AH writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAL, 0xA0, globalState);
+    Interpreter::writeOperand(operandAL, 0xA0, targetSizeByte, globalState);
     if (globalState.cpu.rax != 0x1234567890ABCDA0) {
         LOG_ERROR("Self-test failed: AL writeOperand did not update RAX correctly!");
     }

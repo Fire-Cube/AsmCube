@@ -13,7 +13,8 @@ namespace Interpreter::Instructions
 u32 lea(GlobalState& globalState, Ast::Instruction& instruction) {
     auto& operand = std::get<Ast::Memory>(instruction.operands[0]);
     u64 addr = resolveMemory(operand, globalState);
-    writeOperand(instruction.operands[1], addr, globalState);
+    std::string targetSize = "q";
+    writeOperand(instruction.operands[1], addr, targetSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -41,7 +42,7 @@ u32 Xor(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, globalState);
+    writeOperand(instruction.operands[1], res, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -69,7 +70,7 @@ u32 And(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, globalState);
+    writeOperand(instruction.operands[1], res, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -101,7 +102,7 @@ u32 add(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, globalState);
+    writeOperand(instruction.operands[1], res, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -133,7 +134,7 @@ u32 sub(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, globalState);
+    writeOperand(instruction.operands[1], res, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -193,7 +194,7 @@ u32 inc(GlobalState& globalState, Ast::Instruction& instruction) {
 
     globalState.cpu.rip += 8;
 
-    writeOperand(instruction.operands[0], res, globalState);
+    writeOperand(instruction.operands[0], res, operandSize, globalState);
     return 0;
 }
 
@@ -221,7 +222,7 @@ u32 dec(GlobalState& globalState, Ast::Instruction& instruction) {
 
     globalState.cpu.rip += 8;
 
-    writeOperand(instruction.operands[0], res, globalState);
+    writeOperand(instruction.operands[0], res, operandSize, globalState);
     return 0;
 }
 
@@ -248,7 +249,7 @@ u32 neg(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[0], res, globalState);
+    writeOperand(instruction.operands[0], res, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -284,7 +285,7 @@ u32 stc(GlobalState& globalState, Ast::Instruction& instruction) {
 u32 mov(GlobalState& globalState, Ast::Instruction& instruction) {
     auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], globalState.cpu, instruction.mnemonic.suffix);
     u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    writeOperand(instruction.operands[1], left, globalState);
+    writeOperand(instruction.operands[1], left, operandSize, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
@@ -301,7 +302,8 @@ u32 push(GlobalState& globalState, Ast::Instruction& instruction) {
 u32 pop(GlobalState& globalState, Ast::Instruction& instruction) {
     u64 value;
     globalState.memory.readMemory(globalState.cpu.rsp, value);
-    writeOperand(instruction.operands[0], value, globalState);
+    std::string targetSize = "q";
+    writeOperand(instruction.operands[0], value, targetSize, globalState);
     globalState.cpu.rsp += 8;
     globalState.cpu.rip += 8;
     return 0;

@@ -226,7 +226,7 @@ u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalStat
     LOG_ERROR("Unhandled operand type in readOperand");
 }
 
-void writeOperand(const Ast::Operand& operand, const u64 value, GlobalState& globalState) {
+void writeOperand(const Ast::Operand& operand, const u64 value, std::string& targetSize, GlobalState& globalState) {
     switch (static_cast<Ast::OperandType>(operand.index())) {
         case Ast::OperandType::Register:
             {
@@ -257,7 +257,7 @@ void writeOperand(const Ast::Operand& operand, const u64 value, GlobalState& glo
                 // Memory
                 auto& memoryOperand = std::get<Ast::Memory>(operand);
                 u64 address = resolveMemory(memoryOperand, globalState);
-                switch (getRegisterSize(globalState.cpu,memoryOperand.base.value().name).c_str()[0]) {
+                switch (targetSize.c_str()[0]) {
                     case 'b':
                         globalState.memory.writeMemory<u8>(address, static_cast<u8>(value));
                         break;

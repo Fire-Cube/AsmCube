@@ -19,7 +19,7 @@ u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState);
 std::string getOperandSize(const Ast::Operand& left, const CPU& cpu, const std::string& sizeSuffix);
 std::string getOperandSize(const Ast::Operand& left, const Ast::Operand& right, const CPU& cpu, const std::string& sizeSuffix);
 u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalState& globalState);
-void writeOperand(const Ast::Operand& operand, u64 value, GlobalState& globalState);
+void writeOperand(const Ast::Operand& operand, u64 value, std::string& targetSize, GlobalState& globalState);
 int run(Ast::Ast& ast, GlobalState& globalState);
 
 } // namespace Interpreter
