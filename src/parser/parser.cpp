@@ -407,9 +407,6 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
                     instruction.mnemonic = mnemonic;
                     instruction.additionalData = condCode;
                     parseOperands(instruction, lineTokens);
-                    instruction.mnemonic = mnemonic;
-                    instruction.additionalData = condCode;
-                    parseOperands(instruction, lineTokens);
 
                     auto& instructionDef = Interpreter::Mnemonics::instructionDefinitions[mnemonicName];
                     const auto* form = findMatchingForm(instructionDef, instruction.operands);
