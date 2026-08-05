@@ -507,7 +507,7 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
             LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
         }
         counter++;
-        Ast::Instruction instruction = instructionMap[instructionID];
+        Ast::Instruction& instruction = instructionMap[instructionID];
         u32 shouldExit = Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
         LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {
