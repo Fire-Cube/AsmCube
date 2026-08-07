@@ -25,7 +25,7 @@ u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState) {
         }
         else if (std::holds_alternative<Ast::Label>(*memory.disp)) {
             displacement = globalState.symbolTable.findSymbol(std::get<Ast::Label>(*memory.disp).name).address;
-            if (memory.base.has_value() && memory.base.value().name == "rip") {
+            if (memory.base.has_value() && memory.base->name == "rip") {
                 displacement -= globalState.cpu.rip + 8;
             }
         }
@@ -36,12 +36,12 @@ u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState) {
             base = globalState.cpu.rip + 8;
         }
         else {
-            base = *globalState.cpu.reg64.at(memory.base.value().name);
+            base = *globalState.cpu.reg64.at(memory.base->index);
         }
     }
 
     if (memory.index.has_value()) {
-        index = *globalState.cpu.reg64.at(memory.index.value().name);
+        index = *globalState.cpu.reg64.at(memory.index.value().index);
     }
 
     if (memory.scale.has_value()) {
@@ -68,98 +68,78 @@ u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState) {
     return address;
 }
 
-std::string getRegisterSize(const CPU& cpu, const std::string& registerName) {
-    if (cpu.reg64.find(registerName) != cpu.reg64.end()) {;
-        return "q";
-    }
-    if (cpu.reg32.find(registerName) != cpu.reg32.end()) {
-        return "l";
-    }
-    if (cpu.reg16.find(registerName) != cpu.reg16.end()) {
-        return "w";
-    }
-    if (cpu.reg8.find(registerName) != cpu.reg8.end()) {
-        return "b";
-    }
-    LOG_ERROR("Unknown register '{}'", registerName);
-}
 
-std::string getOperandSize(const Ast::Operand& left, const CPU& cpu, const std::string& sizeSuffix) {
+Ast::Width getOperandSize(const Ast::Operand& left, const std::optional<Ast::Width> suffix) {
     if (std::holds_alternative<Ast::Register>(left)) {
-        auto& reg = std::get<Ast::Register>(left);
-        auto regSize = getRegisterSize(cpu, reg.name);
-        if (!sizeSuffix.empty() && sizeSuffix != regSize) {
+        const auto& reg = std::get<Ast::Register>(left);
+        if (suffix.has_value() && suffix.value() != reg.width) {
             LOG_ERROR("Size suffix does not match register size");
         }
-        return regSize;
+        return reg.width;
     }
     if (std::holds_alternative<Ast::Memory>(left)) {
-        if (!sizeSuffix.empty()) {
-            return sizeSuffix;
+        if (suffix.has_value()) {
+            return *suffix;
         }
         LOG_ERROR("Size suffix is required when operand is memory");
     }
     LOG_ERROR("Cannot determine operand size");
 }
 
-std::string getOperandSize(const Ast::Operand& left, const Ast::Operand& right, const CPU& cpu, const std::string& sizeSuffix) {
+Ast::Width getOperandSize(const Ast::Operand& left, const Ast::Operand& right, const std::optional<Ast::Width> suffix) {
     if (std::holds_alternative<Ast::Immediate>(right)) {
         LOG_ERROR("Destination cannot be an immediate");
     }
     if (std::holds_alternative<Ast::Register>(right)) {
         auto& dstReg = std::get<Ast::Register>(right);
-        auto dstSize = getRegisterSize(cpu, dstReg.name);
+        auto dstSize = dstReg.width;
         if (std::holds_alternative<Ast::Register>(left)) {
             auto& srcReg = std::get<Ast::Register>(left);
-            auto srcSize = getRegisterSize(cpu, srcReg.name);
+            auto srcSize = srcReg.width;
             if (dstSize != srcSize) {
                 LOG_ERROR("Destination register size is different than source register size");
             }
         }
-        if (!sizeSuffix.empty() && sizeSuffix != dstSize) {
-            LOG_ERROR("Size suffix does not match destination register size");
+        if (suffix.has_value() && *suffix != dstSize) {
+            LOG_ERROR("Size suffix '{}' does not match destination register size '{}'", magic_enum::enum_name(*suffix), magic_enum::enum_name(dstSize));
         }
         return dstSize;
     }
     if (std::holds_alternative<Ast::Memory>(right)) {
         if (std::holds_alternative<Ast::Register>(left)) {
             auto& reg = std::get<Ast::Register>(left);
-            return getRegisterSize(cpu, reg.name);
+            return reg.width;
         }
         if (std::holds_alternative<Ast::Memory>(left)) {
             LOG_ERROR("Memory can not be in both src and dst operands");
         }
         if (std::holds_alternative<Ast::Immediate>(left)) {
-            if (!sizeSuffix.empty()) {
-                return sizeSuffix;
+            if (suffix.has_value()) {
+                return *suffix;
             }
             LOG_ERROR("Size suffix is required when moving immediate to memory");
         }
 
     }
     LOG_ERROR("Unable to determine operand size");
-
 }
 
-u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalState& globalState) {
+u64 readOperand(const Ast::Operand& operand,  Ast::Width targetSize, GlobalState& globalState) {
     switch (static_cast<Ast::OperandType>(operand.index())) {
         case Ast::OperandType::Register:
             {
-                auto& reg = std::get<Ast::Register>(operand);
-                std::string regName = reg.name;
-                if (globalState.cpu.reg64.contains(regName)) {
-                    return *globalState.cpu.reg64[regName];
+                const auto& reg = std::get<Ast::Register>(operand);
+                switch (reg.width) {
+                    case Ast::Width::Quad:
+                        return *globalState.cpu.reg64[reg.index];
+                    case Ast::Width::Long:
+                        return *globalState.cpu.reg32[reg.index];
+                    case Ast::Width::Word:
+                        return *globalState.cpu.reg16[reg.index];
+                    case Ast::Width::Byte:
+                        return *globalState.cpu.reg8 [reg.index];
                 }
-                if (globalState.cpu.reg32.contains(regName)) {
-                    return *globalState.cpu.reg32[regName];
-                }
-                if (globalState.cpu.reg16.contains(regName)) {
-                    return *globalState.cpu.reg16[regName];
-                }
-                if (globalState.cpu.reg8.contains(regName)) {
-                    return *globalState.cpu.reg8[regName];
-                }
-                LOG_ERROR("Unknown register '{}'", regName);
+                LOG_ERROR("Invalid register width for '{}'", reg.name);
             }
 
         case Ast::OperandType::Immediate:
@@ -203,20 +183,20 @@ u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalStat
                 auto& memoryOperand = std::get<Ast::Memory>(operand);
                 u64 address = resolveMemory(memoryOperand, globalState);
                 u64 value = 0;
-                switch (targetSize.c_str()[0]) {
-                    case 'b':
+                switch (targetSize) {
+                    case Ast::Width::Byte:
                         globalState.memory.readMemory<u8>(address, reinterpret_cast<u8&>(value));
                         break;
 
-                    case 'w':
+                    case Ast::Width::Word:
                         globalState.memory.readMemory<u16>(address, reinterpret_cast<u16&>(value));
                         break;
 
-                    case 'l':
+                    case Ast::Width::Long:
                         globalState.memory.readMemory<u32>(address, reinterpret_cast<u32&>(value));
                         break;
 
-                    case 'q':
+                    case Ast::Width::Quad:
                         globalState.memory.readMemory<u64>(address, value);
                         break;
                 }
@@ -226,30 +206,31 @@ u64 readOperand(const Ast::Operand& operand, std::string& targetSize, GlobalStat
     LOG_ERROR("Unhandled operand type in readOperand");
 }
 
-void writeOperand(const Ast::Operand& operand, const u64 value, std::string& targetSize, GlobalState& globalState) {
+void writeOperand(const Ast::Operand& operand, const u64 value,  Ast::Width targetSize, GlobalState& globalState) {
     switch (static_cast<Ast::OperandType>(operand.index())) {
         case Ast::OperandType::Register:
             {
                 // Register
                 auto& reg = std::get<Ast::Register>(operand);
-                std::string regName = reg.name;
-                if (globalState.cpu.reg64.contains(regName)) {
-                    *globalState.cpu.reg64[regName] = value;
-                    break;
+
+                switch (reg.width) {
+                    case Ast::Width::Quad:
+                        *globalState.cpu.reg64[reg.index] = value;
+                        return;
+
+                    case Ast::Width::Long:
+                        *reinterpret_cast<u64*>(globalState.cpu.reg32[reg.index]) = value;
+                        return;
+
+                    case Ast::Width::Word:
+                        *globalState.cpu.reg16[reg.index] = static_cast<u16>(value);
+                        return;
+
+                    case Ast::Width::Byte:
+                        *globalState.cpu.reg8[reg.index] = static_cast<u8>(value);
+                        return;
                 }
-                if (globalState.cpu.reg32.contains(regName)) {
-                    *reinterpret_cast<u64*>(globalState.cpu.reg32[regName]) = value;
-                    break;
-                }
-                if (globalState.cpu.reg16.contains(regName)) {
-                    *globalState.cpu.reg16[regName] = static_cast<u16>(value);
-                    break;
-                }
-                if (globalState.cpu.reg8.contains(regName)) {
-                    *globalState.cpu.reg8[regName] = static_cast<u8>(value);
-                    break;
-                }
-                LOG_ERROR("Unknown register '{}'", regName);
+                LOG_ERROR("Invalid register width for '{}'", reg.name);
             }
 
         case Ast::OperandType::Memory:
@@ -257,20 +238,20 @@ void writeOperand(const Ast::Operand& operand, const u64 value, std::string& tar
                 // Memory
                 auto& memoryOperand = std::get<Ast::Memory>(operand);
                 u64 address = resolveMemory(memoryOperand, globalState);
-                switch (targetSize.c_str()[0]) {
-                    case 'b':
+                switch (targetSize) {
+                    case Ast::Width::Byte:
                         globalState.memory.writeMemory<u8>(address, static_cast<u8>(value));
                         break;
 
-                    case 'w':
+                    case Ast::Width::Word:
                         globalState.memory.writeMemory<u16>(address, static_cast<u16>(value));
                         break;
 
-                    case 'l':
+                    case Ast::Width::Long:
                         globalState.memory.writeMemory<u32>(address, static_cast<u32>(value));
                         break;
 
-                    case 'q':
+                    case Ast::Width::Quad:
                         globalState.memory.writeMemory<u64>(address, value);
                         break;
                 }
@@ -308,7 +289,7 @@ std::vector<u8> decodeAscii(const std::string& text) {
 }
 
 int run(Ast::Ast& ast, GlobalState& globalState) {
-    std::unordered_map<u64, Ast::Instruction> instructionMap{};
+    std::vector<Ast::Instruction> instructionList{};
     u64 instructionID = 0;
 
     // Linking
@@ -456,7 +437,7 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         }
 
                         Ast::Instruction instruction = std::get<Ast::Instruction>(item);
-                        instructionMap[instructionID] = instruction;
+                        instructionList.push_back(instruction);
                         Symbol symbol;
                         if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
                             symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
@@ -507,7 +488,7 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
             LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
         }
         counter++;
-        Ast::Instruction& instruction = instructionMap[instructionID];
+        Ast::Instruction& instruction = instructionList[instructionID];
         u32 shouldExit = Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
         LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {

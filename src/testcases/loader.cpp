@@ -34,10 +34,7 @@ void loadTest(GlobalState& globalState, const std::filesystem::path& path) {
         CHECK(registersNode.is_map(), "Registers node must be a map");
         for (const ryml::ConstNodeRef registerNode : registersNode.children()) {
             std::string registerName{ registerNode.key().str, registerNode.key().len };
-            if (!globalState.cpu.reg64.contains(registerName) &&
-                !globalState.cpu.reg32.contains(registerName) &&
-                !globalState.cpu.reg16.contains(registerName) &&
-                !globalState.cpu.reg8.contains(registerName)) {
+            if (Parser::registerTable.find(registerName) != Parser::registerTable.end()) {
                 LOG_ERROR("Unknown register '{}' in testcase!", registerName);
             }
             std::string value{ registerNode.val().str, registerNode.val().len };

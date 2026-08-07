@@ -78,27 +78,40 @@ struct Directive {
     }
 };
 
+enum class Width : u8 {
+    Byte = 8,
+    Word = 16,
+    Long = 32,
+    Quad = 64,
+};
+
 struct Mnemonic {
     std::string mnemonicName;
 
     std::string prefix;
-    std::string suffix;
+    std::optional<Width> width;
 
     template <class Archive>
     void serialize(Archive& archive) {
         archive(cereal::make_nvp("mnemonicName", mnemonicName),
                 cereal::make_nvp("prefix", prefix),
-                cereal::make_nvp("suffix", suffix));
+                cereal::make_nvp("width", width));
     }
 };
 
+
+
 struct Register {
     std::string name;
+    Width width;
+    u8 index;
 
     template <class Archive>
     void serialize(Archive& archive) {
         archive(
-            cereal::make_nvp("name", name));
+            cereal::make_nvp("name", name),
+            cereal::make_nvp("width", width),
+            cereal::make_nvp("index", index));
     }
 };
 

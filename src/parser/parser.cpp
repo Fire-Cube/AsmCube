@@ -39,6 +39,15 @@ s64 textToNumber(const std::string& text) {
     return std::stoull(tmpText, nullptr, 10);
 }
 
+Ast::Register makeRegister(const Token& token) {
+    const std::string name = token.lexeme.substr(1);
+    auto it = registerTable.find(name);
+    if (it == registerTable.end()) {
+        LOG_ERROR("Unknown register '{}' (line {} column {})", name, token.line, token.column);
+    }
+    return it->second;
+}
+
 int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTokens, const u32 operandStart, const std::vector<u32>& operandCommaPositions) {
     u32 openBracketPosition = operandStart;
     bool hasDisplacement = false;
@@ -51,7 +60,7 @@ int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTo
         case 0:
             // (base)
             instruction.operands.push_back(Ast::Memory{
-                .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) }
+                .base = makeRegister(lineTokens[openBracketPosition + 1])
             });
 
             break;
@@ -59,8 +68,8 @@ int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTo
         case 1:
             // (base, index)
             instruction.operands.push_back(Ast::Memory{
-                .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
-                .index = Ast::Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) }
+                .base = makeRegister(lineTokens[openBracketPosition + 1]),
+                .index = makeRegister(lineTokens[operandCommaPositions[0] + 1])
             });
 
             break;
@@ -90,8 +99,8 @@ int parseOperand(Ast::Instruction& instruction, const std::vector<Token>& lineTo
                         LOG_ERROR("Invalid scale '{}' (line {} column {})", lineTokens[operandCommaPositions[1] + 1].lexeme, lineTokens[operandCommaPositions[1] + 1].line, lineTokens[operandCommaPositions[1] + 1].column);
                 }
                 instruction.operands.push_back(Ast::Memory{
-                    .base = Ast::Register{ lineTokens[openBracketPosition + 1].lexeme.substr(1) },
-                    .index = Ast::Register{ lineTokens[operandCommaPositions[0] + 1].lexeme.substr(1) },
+                    .base = makeRegister(lineTokens[openBracketPosition + 1]),
+                    .index = makeRegister(lineTokens[operandCommaPositions[0] + 1]),
                     .scale = scale
                 });
                 break;
@@ -162,7 +171,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
         }
         else {
             if (lineTokens[1].type == Token::Type::Register) {
-                instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme.substr(1) });
+                instruction.operands.push_back(makeRegister(lineTokens[1]));
             }
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
@@ -179,7 +188,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
         }
         else {
             if (lineTokens[parameterCommaPos + 1].type == Token::Type::Register) {
-                instruction.operands.push_back(Ast::Register{ lineTokens[parameterCommaPos + 1].lexeme.substr(1) });
+                instruction.operands.push_back(makeRegister(lineTokens[parameterCommaPos + 1]));
             }
             else if (lineTokens[parameterCommaPos + 1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[parameterCommaPos + 1].lexeme.substr(1); // Remove '$'
@@ -195,7 +204,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
             instruction.operands.push_back(Ast::Symbol{lineTokens[1].lexeme});
         }
         else if (lineTokens[1].type == Token::Type::Register) {
-            instruction.operands.push_back(Ast::Register{ lineTokens[1].lexeme.substr(1) });
+            instruction.operands.push_back(makeRegister(lineTokens[1]));
         }
         else if (lineTokens[1].type == Token::Type::Immediate) {
             std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
@@ -358,7 +367,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
                     if (std::ranges::find(instructionDef.allowedSuffixes, suffix) == instructionDef.allowedSuffixes.end()) {
                         LOG_ERROR("Invalid suffix '{}' for mnemonic '{}' at line {} column {}", suffix, mnemonicName, lineTokens[0].line, lineTokens[0].column);
                     }
-                    mnemonic.suffix = suffix;
+                    mnemonic.width = suffixWidths.at(suffix);
                 }
                 instruction.mnemonic = mnemonic;
                 parseOperands(instruction, lineTokens);
@@ -401,7 +410,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
                     Ast::Mnemonic mnemonic;
                     mnemonic.mnemonicName = mnemonicName;
                     if (!suffix.empty()) {
-                        mnemonic.suffix = suffix;
+                        mnemonic.width = suffixWidths.at(suffix);
                     }
 
                     instruction.mnemonic = mnemonic;

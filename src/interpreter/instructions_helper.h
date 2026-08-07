@@ -11,18 +11,7 @@
 namespace Interpreter::Instructions::Helper
 {
 
-inline u64 getSizeOfGPR(const char suffix) {
-    switch (suffix) {
-        case 'b': return 8;
-        case 'w': return 16;
-        case 'l': return 32;
-        case 'q': return 64;
-        default:
-            LOG_ERROR("Invalid size suffix: {}", suffix);
-    }
-}
-
-inline bool evaluateCondCodes(Ast::CondCode condCode, GlobalState& globalState) {
+inline bool evaluateCondCodes(Ast::CondCode condCode, const GlobalState& globalState) {
     switch (condCode) {
         case Ast::CondCode::overflow:
             return globalState.cpu.of;

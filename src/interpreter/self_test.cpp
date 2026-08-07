@@ -7,16 +7,11 @@
 
 void selfTestCPU() {
     GlobalState globalState{};
-    Ast::Operand operandRAX{ Ast::Register{.name="rax"} };
-    Ast::Operand operandEAX{ Ast::Register{.name="eax"} };
-    Ast::Operand operandAX{ Ast::Register{.name="ax"} };
-    Ast::Operand operandAH{ Ast::Register{.name="ah"} };
-    Ast::Operand operandAL{ Ast::Register{.name="al"} };
-    
-    std::string targetSizeQuad = "q";
-    std::string targetSizeLong = "l";
-    std::string targetSizeWord = "w";
-    std::string targetSizeByte = "b";
+    Ast::Operand operandRAX{ Parser::registerTable.at("rax") };
+    Ast::Operand operandEAX{ Parser::registerTable.at("eax") };
+    Ast::Operand operandAX{ Parser::registerTable.at("ax") };
+    Ast::Operand operandAH{ Parser::registerTable.at("ah") };
+    Ast::Operand operandAL{ Parser::registerTable.at("al") };
 
     globalState.cpu.rax = 0x1234567890ABCDEF;
     if (globalState.cpu.eax != 0x90ABCDEF) {
@@ -32,19 +27,19 @@ void selfTestCPU() {
         LOG_ERROR("Self-test failed: AL direct register access read value mismatch!");
     }
 
-    if (Interpreter::readOperand(operandRAX, targetSizeQuad, globalState) != 0x1234567890ABCDEF) {
+    if (Interpreter::readOperand(operandRAX, Ast::Width::Quad, globalState) != 0x1234567890ABCDEF) {
         LOG_ERROR("Self-test failed: RAX readOperand value mismatch!");
     }
-    if (Interpreter::readOperand(operandEAX, targetSizeLong, globalState) != 0x90ABCDEF) {
+    if (Interpreter::readOperand(operandEAX, Ast::Width::Long, globalState) != 0x90ABCDEF) {
         LOG_ERROR("Self-test failed: EAX readOperand value mismatch!");
     }
-    if (Interpreter::readOperand(operandAX, targetSizeWord, globalState) != 0xCDEF) {
+    if (Interpreter::readOperand(operandAX, Ast::Width::Word, globalState) != 0xCDEF) {
         LOG_ERROR("Self-test failed: AX readOperand value mismatch!");
     }
-    if (Interpreter::readOperand(operandAH, targetSizeByte, globalState) != 0xCD) {
+    if (Interpreter::readOperand(operandAH, Ast::Width::Byte, globalState) != 0xCD) {
         LOG_ERROR("Self-test failed: AH readOperand value mismatch!");
     }
-    if (Interpreter::readOperand(operandAL, targetSizeByte, globalState) != 0xEF) {
+    if (Interpreter::readOperand(operandAL, Ast::Width::Byte, globalState) != 0xEF) {
         LOG_ERROR("Self-test failed: AL readOperand value mismatch!");
     }
 
@@ -56,31 +51,31 @@ void selfTestCPU() {
     };
 
     resetRAX();
-    Interpreter::writeOperand(operandRAX, 0xDEADDEADDEAD, targetSizeQuad, globalState);
+    Interpreter::writeOperand(operandRAX, 0xDEADDEADDEAD, Ast::Width::Quad, globalState);
     if (globalState.cpu.rax != 0xDEADDEADDEAD) {
         LOG_ERROR("Self-test failed: RAX writeOperand did not update RAX correctly!");
     }
 
     globalState.cpu.rax = 0x1234567890ABCDEF;
-    Interpreter::writeOperand(operandEAX, 0xDEADBEEF, targetSizeLong, globalState);
+    Interpreter::writeOperand(operandEAX, 0xDEADBEEF, Ast::Width::Long, globalState);
     if (globalState.cpu.rax != 0x00000000DEADBEEF) {
         LOG_ERROR("Self-test failed: EAX writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAX, 0xBEEF, targetSizeWord, globalState);
+    Interpreter::writeOperand(operandAX, 0xBEEF, Ast::Width::Word, globalState);
     if (globalState.cpu.rax != 0x1234567890ABBEEF) {
         LOG_ERROR("Self-test failed: AX writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAH, 0xAD, targetSizeByte, globalState);
+    Interpreter::writeOperand(operandAH, 0xAD, Ast::Width::Byte, globalState);
     if (globalState.cpu.rax != 0x1234567890ABADEF) {
         LOG_ERROR("Self-test failed: AH writeOperand did not update RAX correctly!");
     }
 
     resetRAX(0x1234567890ABCDEF);
-    Interpreter::writeOperand(operandAL, 0xA0, targetSizeByte, globalState);
+    Interpreter::writeOperand(operandAL, 0xA0, Ast::Width::Byte, globalState);
     if (globalState.cpu.rax != 0x1234567890ABCDA0) {
         LOG_ERROR("Self-test failed: AL writeOperand did not update RAX correctly!");
     }
