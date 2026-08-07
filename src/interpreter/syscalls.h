@@ -17,7 +17,7 @@ void syscall_write(CPU& cpu, Memory& memory);
 void syscall_open(CPU& cpu, Memory& memory);
 void syscall_exit(CPU& cpu, Memory& memory);
 
-inline std::unordered_map<u32, std::function<void(CPU& cpu, Memory& memory)>> syscallTable = {
+inline std::unordered_map<u32, void (*)(CPU&, Memory&)> syscallTable = {
     {0,  syscall_read},
     {1,  syscall_write},
     {2,  syscall_open},

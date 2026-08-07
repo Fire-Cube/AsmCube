@@ -14,6 +14,11 @@
 namespace Interpreter
 {
 
+struct LinkedInstruction {
+    Ast::Instruction instruction;
+    u32 (*implementation)(GlobalState&, Ast::Instruction&);
+};
+
 u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState);
 
 Ast::Width getOperandSize(const Ast::Operand& left, std::optional<Ast::Width> suffix);

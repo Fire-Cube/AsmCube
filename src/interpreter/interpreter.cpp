@@ -289,7 +289,7 @@ std::vector<u8> decodeAscii(const std::string& text) {
 }
 
 int run(Ast::Ast& ast, GlobalState& globalState) {
-    std::vector<Ast::Instruction> instructionList{};
+    std::vector<LinkedInstruction> instructionList{};
     u64 instructionID = 0;
 
     // Linking
@@ -437,7 +437,8 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         }
 
                         Ast::Instruction instruction = std::get<Ast::Instruction>(item);
-                        instructionList.push_back(instruction);
+                        LinkedInstruction linkedInstruction{ instruction, Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation };
+                        instructionList.push_back(linkedInstruction);
                         Symbol symbol;
                         if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
                             symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
@@ -488,9 +489,9 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
             LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
         }
         counter++;
-        Ast::Instruction& instruction = instructionList[instructionID];
-        u32 shouldExit = Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation(globalState, instruction);
-        LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.mnemonic.mnemonicName, instructionPointer);
+        LinkedInstruction& instruction = instructionList[instructionID];
+        u32 shouldExit = instruction.implementation(globalState, instruction.instruction);
+        LOG_DEBUG("Executed instruction '{}' at RIP=0x{:016x}", instruction.instruction.mnemonic.mnemonicName, instructionPointer);
         if (shouldExit != 0) {
             endTime = std::chrono::high_resolution_clock::now();
             duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() / 1'000'000.;

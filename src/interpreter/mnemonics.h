@@ -50,7 +50,7 @@ struct InstructionDetails {
     std::vector<std::string> allowedPrefixes;
     std::vector<std::string> allowedSuffixes;
     std::vector<InstructionForm> forms;
-    std::function<u32(GlobalState&, Ast::Instruction&)> implementation;
+    u32 (*implementation)(GlobalState&, Ast::Instruction&);
 };
 
 inline std::vector<std::string> integerSizeSuffixes = {
