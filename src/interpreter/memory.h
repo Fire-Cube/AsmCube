@@ -200,6 +200,23 @@ class Memory {
             permission.execute = page.permissionExecute.test(offset);
             return permission;
         }
+
+        u64 fetchInstruction(const u64 address) {
+            const u32 offset = address % PageSize;
+            Page& page = getPage(address);
+
+            if (!page.permissionExecute.test(offset)) {
+                LOG_ERROR("Execute access violation at address 0x{:016x}", address);
+            }
+
+            u64 id = 0;
+            if (offset + sizeof(u64) <= PageSize) {
+                std::memcpy(&id, &page.data[offset], sizeof(u64));
+                return id;
+            }
+            readMemoryNoExcept(address, id);
+            return id;
+        }
 };
 
 } // namespace Interpreter

@@ -483,8 +483,7 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
 
     u64 counter = 0;
     while (true) {
-        instructionID = 0;
-        globalState.memory.readMemory(instructionPointer, instructionID);
+        instructionID = globalState.memory.fetchInstruction(instructionPointer);
         if (globalState.memory.getBytePermission(instructionPointer).execute == false) {
             LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
         }
