@@ -20,14 +20,10 @@ u64 resolveMemory(const Ast::Memory& memory, GlobalState& globalState) {
     u64 scale = 1;
 
     if (memory.disp.has_value()) {
-        if (std::holds_alternative<s64>(*memory.disp)) {
-            displacement = std::get<s64>(*memory.disp);
-        }
-        else if (std::holds_alternative<Ast::Label>(*memory.disp)) {
-            displacement = globalState.symbolTable.findSymbol(std::get<Ast::Label>(*memory.disp).name).address;
-            if (memory.base.has_value() && memory.base->name == "rip") {
-                displacement -= globalState.cpu.rip + 8;
-            }
+        displacement = std::get<s64>(*memory.disp);
+
+        if (memory.base.has_value() && memory.base->name == "rip") {
+            displacement -= globalState.cpu.rip + 8;
         }
     }
 
@@ -149,7 +145,7 @@ u64 readOperand(const Ast::Operand& operand,  Ast::Width targetSize, GlobalState
             {
                 const auto& relative = std::get<Ast::RelativeImmediate>(operand);
                 if (std::holds_alternative<Ast::Label>(relative.target)) {
-                    return globalState.symbolTable.findSymbol(std::get<Ast::Label>(relative.target).name).address;
+                    LOG_ERROR("Unresolved relative immediate '{}' reached the interpreter", std::get<Ast::Label>(relative.target).name);
                 }
 
                 return globalState.cpu.rip + 8 + std::get<s64>(relative.target);
@@ -157,26 +153,8 @@ u64 readOperand(const Ast::Operand& operand,  Ast::Width targetSize, GlobalState
 
         case Ast::OperandType::Symbol:
             {
-                const std::string& name = std::get<Ast::Symbol>(operand).name;
-                    for (const auto& symbolImmediate : globalState.symbolImmediates) {
-                        if (symbolImmediate.name == name) {
-                            return symbolImmediate.value;
-                        }
-                    }
-                    for (const auto& [symbolName, symbol] : globalState.symbolTable.symbols) {
-                        if (symbolName == name) {
-                            return symbol.address;
-                        }
-                        if (auto pos = name.find('@'); pos != std::string::npos) {
-                            std::string baseSymbolName = name.substr(0, pos);
-                            if (symbolName == baseSymbolName) {
-                                return symbol.address;
-                            }
-                        }
-                    }
-                    LOG_ERROR("Unknown symbol {}", name);
-                }
-                break;
+                LOG_ERROR("Unresolved symbol '{}' reached the interpreter", std::get<Ast::Symbol>(operand).name);
+            }
 
         case Ast::OperandType::Memory:
             {
@@ -286,6 +264,25 @@ std::vector<u8> decodeAscii(const std::string& text) {
         }
     }
     return result;
+}
+
+u64 resolveSymbolValue(const std::string& name, GlobalState& globalState) {
+    std::string baseName = name;
+    if (auto it = name.find("@"); it != std::string::npos) {
+        baseName = name.substr(0, it);
+    }
+
+    for (const auto& symbolImmediate : globalState.symbolImmediates) {
+        if (symbolImmediate.name == baseName) {
+            return symbolImmediate.value;
+        }
+    }
+
+    if (auto it = globalState.symbolTable.symbols.find(baseName); it != globalState.symbolTable.symbols.end()) {
+        return it->second.address;
+    }
+
+    LOG_ERROR("Unknown symbol '{}'", name);
 }
 
 int run(Ast::Ast& ast, GlobalState& globalState) {
@@ -437,8 +434,6 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         }
 
                         Ast::Instruction instruction = std::get<Ast::Instruction>(item);
-                        LinkedInstruction linkedInstruction{ instruction, Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation };
-                        instructionList.push_back(linkedInstruction);
                         Symbol symbol;
                         if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
                             symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
@@ -446,6 +441,8 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         else {
                             symbol = globalState.symbolTable.addSymbol(actualSymbolName, 8);
                         }
+                        LinkedInstruction linkedInstruction{ instruction, Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation, symbol.address };
+                        instructionList.push_back(linkedInstruction);
                         globalState.memory.writeMemoryNoExcept(symbol.address, instructionID);
                         globalState.memory.setPermission(symbol.address, 8, permission);
                         ++instructionID;
@@ -461,6 +458,32 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         }
                         break;
                     }
+            }
+        }
+    }
+
+    for (LinkedInstruction& linkedInstruction : instructionList) {
+        for (Ast::Operand& operand : linkedInstruction.instruction.operands) {
+            if (std::holds_alternative<Ast::Symbol>(operand)) {
+                const auto& name = std::get<Ast::Symbol>(operand).name;
+                operand = Ast::Immediate{ resolveSymbolValue(name, globalState) };
+            }
+            if (std::holds_alternative<Ast::RelativeImmediate>(operand)) {
+                auto& relativeImmediate = std::get<Ast::RelativeImmediate>(operand);
+                if (std::holds_alternative<Ast::Label>(relativeImmediate.target)) {
+                    auto name = std::get<Ast::Label>(relativeImmediate.target).name;
+
+                    const u64 targetAddress = resolveSymbolValue(name, globalState);
+                    const s64 nextInstruction = static_cast<s64>(linkedInstruction.address + 8);
+                    relativeImmediate.target = static_cast<s64>(targetAddress) - nextInstruction;
+                }
+            }
+
+            else if (std::holds_alternative<Ast::Memory>(operand)) {
+                auto& memory = std::get<Ast::Memory>(operand);
+                if (memory.disp.has_value() && std::holds_alternative<Ast::Label>(*memory.disp)) {
+                    memory.disp = static_cast<s64>(globalState.symbolTable.findSymbol(std::get<Ast::Label>(*memory.disp).name).address);
+                }
             }
         }
     }
