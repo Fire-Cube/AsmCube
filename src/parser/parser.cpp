@@ -19,6 +19,10 @@ bool isNumber(const std::string& str) {
     return !str.empty() && std::ranges::all_of(str, isdigit);
 }
 
+bool isNegativeNumber(const std::string& str) {
+    return str.size() > 1 && str[0] == '-' && std::ranges::all_of(str.begin() + 1, str.end(), isdigit);
+}
+
 bool isHexNumber(const std::string& str) {
     return str.size() > 2 && str[0] == '0' && (str[1] == 'x') &&
            std::ranges::all_of(str.begin() + 2, str.end(), [](char c) {
@@ -36,7 +40,7 @@ s64 textToNumber(const std::string& text) {
         return std::stoull(tmpText.substr(2), nullptr, 16);
     }
 
-    return std::stoull(tmpText, nullptr, 10);
+    return std::stoll(tmpText, nullptr, 10);
 }
 
 Ast::Register makeRegister(const Token& token) {
@@ -175,7 +179,7 @@ int parseOperands(Ast::Instruction& instruction, const std::vector<Token>& lineT
             }
             else if (lineTokens[1].type == Token::Type::Immediate) {
                 std::string immediateValue = lineTokens[1].lexeme.substr(1); // Remove '$'
-                if (isNumber(immediateValue) || isHexNumber(immediateValue)) {
+                if (isNumber(immediateValue) || isHexNumber(immediateValue) || isNegativeNumber(immediateValue)) {
                     instruction.operands.push_back(Ast::Immediate{static_cast<u64>(textToNumber(immediateValue)) });
                 }
                 else if (lineTokens[2].type == Token::Type::Identifier) {
@@ -392,7 +396,7 @@ int parse(const std::vector<Token>& tokens, std::vector<Ast::Section>& ast) {
                     mnemonicName = "Jcc";
                 }
                 if (lineTokens[0].lexeme.size() >= 5 && lineTokens[0].lexeme.starts_with("cmov")) {
-                    tmp = lineTokens[0].lexeme.substr(4);
+                    tmp = lineTokens[0].lexeme.substr(4, 2);
                     if (condCodeMap.contains(tmp)) {
                         condCode = condCodeMap[tmp];
                         mnemonicName = "CMOVcc";

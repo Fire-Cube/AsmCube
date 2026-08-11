@@ -133,10 +133,16 @@ int lex(std::vector<std::string>& inputLines, std::vector<Token>& tokens) {
                         char nextChar = (i + 1 < line.size()) ? line[i + 1] : '\0';
                         unsigned char unsignedNextChar = static_cast<unsigned char>(nextChar);
 
-                        if (std::isdigit(unsignedNextChar) && !buildingIdentifier && !buildingImmediate && !buildingRegister && !buildingSymbolType) {
-                            endCurrentLexemes();
-                            buildingNumber = true;
-                            tokens.push_back(Token{ Token::Type::NegativeNumber, "-", lineNumber, column, 1 });
+                        if (std::isdigit(unsignedNextChar) && !buildingIdentifier && !buildingRegister && !buildingSymbolType) {
+                            if (buildingImmediate) {
+                                tokens.back().lexeme += c;
+                                tokens.back().length += 1;
+                            }
+                            else {
+                                endCurrentLexemes();
+                                buildingNumber = true;
+                                tokens.push_back(Token{ Token::Type::NegativeNumber, "-", lineNumber, column, 1 });
+                            }
                         }
                         else {
                             endCurrentLexemes();

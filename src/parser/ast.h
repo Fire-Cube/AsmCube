@@ -99,8 +99,6 @@ struct Mnemonic {
     }
 };
 
-
-
 struct Register {
     std::string name;
     Width width;
