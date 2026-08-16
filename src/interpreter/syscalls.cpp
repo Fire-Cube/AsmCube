@@ -73,4 +73,10 @@ void syscall_exit(CPU& cpu, Memory& memory) {
     LOG_INFO("Program finished with exit code {}", exitCode);
 }
 
+void syscall_getrandom(CPU& cpu, Memory& memory) {
+    u64 bufAddress = cpu.rdi;
+    u32 count = static_cast<u32>(cpu.rsi);
+    u32 flags = static_cast<u32>(cpu.rdx);
+}
+
 } // namespace Interpreter::Syscalls

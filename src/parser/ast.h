@@ -174,6 +174,7 @@ enum class OperandType {
 struct Instruction {
     Mnemonic mnemonic;
     std::vector<Operand> operands;
+    Width operandWidth;
     std::optional<std::variant<CondCode>> additionalData;
 
     template <class Archive>

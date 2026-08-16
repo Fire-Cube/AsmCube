@@ -5,6 +5,7 @@
 
 #include <array>
 #include <bitset>
+#include <cstring>
 #include <unordered_map>
 
 #include "logging.h"
@@ -32,15 +33,24 @@ struct Permission {
 class Memory {
     private:
         std::unordered_map<u64, Page> pages;
+        u64 lastPageIndex = UINT64_MAX;
+        Page* lastPage = nullptr;
+        u64 lastCodePageIndex = UINT64_MAX;
+        Page* lastCodePage = nullptr;
 
     public:
         Page& getPage(const u64 address) {
             const u64 pageIndex = address / PageSize;
+            if (lastPageIndex == pageIndex) {
+                return *lastPage;
+            }
 
             auto [it, inserted] = pages.try_emplace(pageIndex);
             if (inserted && address >= UINT64_MAX - 8_MiB) {
                 setPermission(pageIndex * PageSize, PageSize, Permission{ true, true, false });
             }
+            lastPageIndex = pageIndex;
+            lastPage = &it->second;
             return it->second;
         }
 
@@ -203,15 +213,26 @@ class Memory {
 
         u64 fetchInstruction(const u64 address) {
             const u32 offset = address % PageSize;
-            Page& page = getPage(address);
+            const u64 pageIndex = address / PageSize;
 
-            if (!page.permissionExecute.test(offset)) {
+            Page* page;
+            if (lastCodePageIndex == pageIndex) {
+                page = lastCodePage;
+            }
+            else {
+                auto [it, inserted] = pages.try_emplace(pageIndex);
+                page = &it->second;
+                lastCodePageIndex = pageIndex;
+                lastCodePage = &it->second;
+            }
+
+            if (!page->permissionExecute.test(offset)) {
                 LOG_ERROR("Execute access violation at address 0x{:016x}", address);
             }
 
             u64 id = 0;
             if (offset + sizeof(u64) <= PageSize) {
-                std::memcpy(&id, &page.data[offset], sizeof(u64));
+                std::memcpy(&id, &page->data[offset], sizeof(u64));
                 return id;
             }
             readMemoryNoExcept(address, id);

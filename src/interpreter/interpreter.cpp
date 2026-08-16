@@ -79,6 +79,12 @@ Ast::Width getOperandSize(const Ast::Operand& left, const std::optional<Ast::Wid
         }
         LOG_ERROR("Size suffix is required when operand is memory");
     }
+    if (std::holds_alternative<Ast::RelativeImmediate>(left)) {
+        return Ast::Width::Quad;
+    }
+    if (std::holds_alternative<Ast::Immediate>(left)) {
+        return suffix.value_or(Ast::Width::Quad);
+    }
     LOG_ERROR("Cannot determine operand size");
 }
 
@@ -434,6 +440,13 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         }
 
                         Ast::Instruction instruction = std::get<Ast::Instruction>(item);
+                        if (instruction.operands.size() == 1) {
+                            instruction.operandWidth = getOperandSize(instruction.operands[0], instruction.mnemonic.width);
+                        }
+                        else if (instruction.operands.size() == 2) {
+                            instruction.operandWidth = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
+                        }
+
                         Symbol symbol;
                         if (globalState.symbolTable.hasSymbol(actualSymbolName)) {
                             symbol = globalState.symbolTable.extendSymbol(actualSymbolName, 8);
@@ -441,7 +454,12 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
                         else {
                             symbol = globalState.symbolTable.addSymbol(actualSymbolName, 8);
                         }
-                        LinkedInstruction linkedInstruction{ instruction, Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation, symbol.address };
+
+                        LinkedInstruction linkedInstruction{
+                            instruction,
+                            Mnemonics::instructionDefinitions[instruction.mnemonic.mnemonicName].implementation,
+                            symbol.address,
+                        };
                         instructionList.push_back(linkedInstruction);
                         globalState.memory.writeMemoryNoExcept(symbol.address, instructionID);
                         globalState.memory.setPermission(symbol.address, 8, permission);
@@ -507,9 +525,6 @@ int run(Ast::Ast& ast, GlobalState& globalState) {
     u64 counter = 0;
     while (true) {
         instructionID = globalState.memory.fetchInstruction(instructionPointer);
-        if (globalState.memory.getBytePermission(instructionPointer).execute == false) {
-            LOG_ERROR("Execute access violation at address 0x{:016x}", instructionPointer);
-        }
         counter++;
         LinkedInstruction& instruction = instructionList[instructionID];
         u32 shouldExit = instruction.implementation(globalState, instruction.instruction);

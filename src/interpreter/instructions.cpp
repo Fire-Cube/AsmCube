@@ -19,11 +19,10 @@ u32 lea(GlobalState& globalState, Ast::Instruction& instruction) {
 }
 
 u32 Xor(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -41,17 +40,16 @@ u32 Xor(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, operandSize, globalState);
+    writeOperand(instruction.operands[1], res, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 And(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -69,17 +67,16 @@ u32 And(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, operandSize, globalState);
+    writeOperand(instruction.operands[1], res, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 add(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -101,17 +98,16 @@ u32 add(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, operandSize, globalState);
+    writeOperand(instruction.operands[1], res, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 sub(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -133,18 +129,17 @@ u32 sub(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[1], res, operandSize, globalState);
+    writeOperand(instruction.operands[1], res, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 cmp(GlobalState& globalState, Ast::Instruction& instruction) {
     // CMP is basically SUB without writing the result
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
     u64 a = left & mask;
@@ -171,9 +166,8 @@ u32 cmp(GlobalState& globalState, Ast::Instruction& instruction) {
 }
 
 u32 inc(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.mnemonic.width);
-    u64 width = static_cast<u64>(operandSize);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 width = static_cast<u64>(instruction.operandWidth);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
 
@@ -193,15 +187,14 @@ u32 inc(GlobalState& globalState, Ast::Instruction& instruction) {
 
     globalState.cpu.rip += 8;
 
-    writeOperand(instruction.operands[0], res, operandSize, globalState);
+    writeOperand(instruction.operands[0], res, instruction.operandWidth, globalState);
     return 0;
 }
 
 u32 dec(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.mnemonic.width);
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
 
@@ -221,15 +214,14 @@ u32 dec(GlobalState& globalState, Ast::Instruction& instruction) {
 
     globalState.cpu.rip += 8;
 
-    writeOperand(instruction.operands[0], res, operandSize, globalState);
+    writeOperand(instruction.operands[0], res, instruction.operandWidth, globalState);
     return 0;
 }
 
 u32 neg(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.mnemonic.width);
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
 
     u64 mask = (width == 64) ? ~0ULL : ((1ULL << width) - 1);
 
@@ -248,17 +240,16 @@ u32 neg(GlobalState& globalState, Ast::Instruction& instruction) {
     // SF, ZF, PF
     Helper::calculateFlagsSFZFPF(globalState, res, width);
 
-    writeOperand(instruction.operands[0], res, operandSize, globalState);
+    writeOperand(instruction.operands[0], res, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 test(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.mnemonic.width);
-    u64 width = static_cast<u64>(operandSize);
+    u64 width = static_cast<u64>(instruction.operandWidth);
 
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    u64 right = readOperand(instruction.operands[1], operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    u64 right = readOperand(instruction.operands[1], instruction.operandWidth, globalState);
 
     u64 result = left & right;
 
@@ -269,7 +260,7 @@ u32 test(GlobalState& globalState, Ast::Instruction& instruction) {
     globalState.cpu.of = 0;
 
     // SF, ZF, PF
-    Instructions::Helper::calculateFlagsSFZFPF(globalState, result, width);
+    Helper::calculateFlagsSFZFPF(globalState, result, width);
 
     globalState.cpu.rip += 8;
     return 0;
@@ -282,16 +273,14 @@ u32 stc(GlobalState& globalState, Ast::Instruction& instruction) {
 }
 
 u32 mov(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[1], instruction.mnemonic.width);
-    u64 left = readOperand(instruction.operands[0], operandSize, globalState);
-    writeOperand(instruction.operands[1], left, operandSize, globalState);
+    u64 left = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
+    writeOperand(instruction.operands[1], left, instruction.operandWidth, globalState);
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 push(GlobalState& globalState, Ast::Instruction& instruction) {
-    auto operandSize = getOperandSize(instruction.operands[0], instruction.operands[0], instruction.mnemonic.width);
-    u64 value = readOperand(instruction.operands[0], operandSize, globalState);
+    u64 value = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
     globalState.cpu.rsp -= 8;
     globalState.memory.writeMemory(globalState.cpu.rsp, value);
     globalState.cpu.rip += 8;
@@ -301,14 +290,14 @@ u32 push(GlobalState& globalState, Ast::Instruction& instruction) {
 u32 pop(GlobalState& globalState, Ast::Instruction& instruction) {
     u64 value;
     globalState.memory.readMemory(globalState.cpu.rsp, value);
-    writeOperand(instruction.operands[0], value, Ast::Width::Quad, globalState);
+    writeOperand(instruction.operands[0], value, instruction.operandWidth, globalState);
     globalState.cpu.rsp += 8;
     globalState.cpu.rip += 8;
     return 0;
 }
 
 u32 call(GlobalState& globalState, Ast::Instruction& instruction) {
-    u64 address = readOperand(instruction.operands[0], Ast::Width::Quad, globalState);
+    u64 address = readOperand(instruction.operands[0], instruction.operandWidth, globalState);
     globalState.cpu.rsp -= 8;
     globalState.memory.writeMemory(globalState.cpu.rsp, globalState.cpu.rip);
     globalState.cpu.rip = address;
@@ -325,7 +314,7 @@ u32 ret(GlobalState& globalState, Ast::Instruction& instruction) {
 
 u32 jmp(GlobalState& globalState, Ast::Instruction& instruction) {
     Ast::Operand& operand = instruction.operands[0];
-    globalState.cpu.rip = readOperand(operand, Ast::Width::Quad, globalState);
+    globalState.cpu.rip = readOperand(operand, instruction.operandWidth, globalState);
 
     return 0;
 }
@@ -333,9 +322,9 @@ u32 jmp(GlobalState& globalState, Ast::Instruction& instruction) {
 u32 Jcc(GlobalState& globalState, Ast::Instruction& instruction) {
     auto condCode = std::get<Ast::CondCode>(instruction.additionalData.value());
 
-    if (bool shouldJump = Helper::evaluateCondCodes(condCode, globalState)) {
+    if (Helper::evaluateCondCodes(condCode, globalState)) {
         Ast::Operand& operand = instruction.operands[0];
-        u64 targetAdress = readOperand(operand, Ast::Width::Quad, globalState);
+        u64 targetAdress = readOperand(operand, instruction.operandWidth, globalState);
         globalState.cpu.rip = targetAdress;
     }
     else {
@@ -349,7 +338,7 @@ u32 CMOVcc(GlobalState& globalState, Ast::Instruction& instruction) {
     auto condCode = std::get<Ast::CondCode>(instruction.additionalData.value());
     LOG_DEBUG("CondCode of CMOVcc is {}", magic_enum::enum_name(condCode));
 
-    if (bool shouldMov = Helper::evaluateCondCodes(condCode, globalState)) {
+    if (Helper::evaluateCondCodes(condCode, globalState)) {
         mov(globalState, instruction);
     }
     else {
